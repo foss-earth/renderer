@@ -96,7 +96,7 @@ export function createRenderScheduler(options: RenderSchedulerOptions): RenderSc
           cancelFrame(handle);
           handle = 0;
         }
-        if (continuousRefs === 0) setActive(false);
+        setActive(false);
       } else {
         schedule();
       }

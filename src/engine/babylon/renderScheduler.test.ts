@@ -147,6 +147,7 @@ describe("createRenderScheduler", () => {
     scheduler.beginContinuous();
     expect(raf.pending()).toBe(1);
     scheduler.setPaused(true);
+    expect(scheduler.isActive()).toBe(false);
     expect(raf.pending()).toBe(0);
     scheduler.requestRender();
     expect(raf.pending()).toBe(0);

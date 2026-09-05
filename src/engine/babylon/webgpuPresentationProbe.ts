@@ -59,8 +59,9 @@ export async function probeWebGpuPresentation(
   scene: Scene,
 ): Promise<WebGpuPresentationProbeResult> {
   const errors: string[] = [];
-  const onUncapturedError = (event: GPUUncapturedErrorEvent): void => {
-    const message = event.error?.message ?? String(event.error);
+  const onUncapturedError: EventListener = (event): void => {
+    const gpuError = (event as GPUUncapturedErrorEvent).error;
+    const message = gpuError?.message ?? String(gpuError);
     errors.push(message);
   };
 

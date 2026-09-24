@@ -70,6 +70,9 @@ function actualWebGLMode(engine: Engine): "webgl" | "webgl2" {
 function createGlobeScene(engine: Engine | WebGPUEngine): Scene {
   const scene = new Scene(engine);
   scene.useRightHandedSystem = true;
+  // Babylon otherwise raycasts the whole scene on every pointer move. Anchor
+  // pans pick explicitly.
+  scene.skipPointerMovePicking = true;
   return scene;
 }
 

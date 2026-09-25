@@ -115,6 +115,9 @@ async function createWebGpuEngine(
     antialias: options.antialias,
     adaptToDeviceRatio: options.adaptToDeviceRatio,
     useLargeWorldRendering: true,
+    // Lets a profiler time the GPU's render passes. Babylon drops it where the adapter
+    // lacks it, and it costs nothing until timing is switched on.
+    deviceDescriptor: { requiredFeatures: ["timestamp-query"] },
   });
   await webGpuEngine.initAsync();
   return webGpuEngine;

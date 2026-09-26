@@ -2,7 +2,7 @@ import type { RendererMode, RendererSelection } from "../engine/babylon/createRe
 import { getAppSettings } from "../settings/appSettings";
 import type { SettingsRegistry } from "../settings/registry";
 import { checkChoice, createChoiceGroup, createChoiceNote } from "./choiceGroup";
-import { appendHostSections, createParameterSection, createSectionsElement } from "./settings/parameterSection";
+import { appendHostSections, createParameterSection, createSectionsElement, type SectionsElementEntry } from "./settings/parameterSection";
 
 const RENDERER_CHOICE_NAME = "foss-earth-renderer";
 
@@ -16,6 +16,12 @@ export interface RendererPanelOptions {
   onChange(force: RendererMode | null): void;
   /** The registry of the tab's parameters; the app's when omitted. */
   settings?: SettingsRegistry;
+  /**
+   * Sections an app draws itself for sections of this tab, by section id
+   * ("performance" for renderer/performance), such as FOSS Earth's
+   * Performance debug. They follow the tab's other sections.
+   */
+  sections?: readonly SectionsElementEntry[];
 }
 
 export interface RendererPanelHandle {
@@ -83,7 +89,9 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
   const sections = createSectionsElement([
     { id: "renderer.backend", title: settings.getSectionTitle("renderer", "backend"), element: backend.element, defaultOpen: true },
   ]);
-  const hostSections = appendHostSections(settings, "renderer", sections, ["backend"]);
+  const own = options.sections ?? [];
+  const hostSections = appendHostSections(settings, "renderer", sections, ["backend", ...own.map(section => section.id)]);
+  for (const section of own) sections.append({ ...section, id: `renderer.${section.id}` });
 
   return {
     element: sections.element,

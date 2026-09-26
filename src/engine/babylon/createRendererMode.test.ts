@@ -155,6 +155,26 @@ describe("bootstrapGlobeRenderer", () => {
     expect(probeWebGpuPresentation).not.toHaveBeenCalled();
   });
 
+  it("draws with antialiasing only when renderer.antialias asks, and says when WebGPU could only start without it", async () => {
+    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
+    const canvas = document.createElement("canvas");
+
+    const webgl = await bootstrapGlobeRenderer(canvas, { force: "webgl2", antialias: false });
+    expect(mockState.webGlCtor).toHaveBeenLastCalledWith(canvas, false, expect.anything(), true);
+    expect(webgl.renderer).toMatchObject({ antialias: false, devicePixels: true });
+
+    const webgpu = await bootstrapGlobeRenderer(canvas, { force: "webgpu", antialias: false });
+    expect(webgpu.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: true });
+
+    // The safe fallback turns both off, whatever was asked.
+    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    vi.mocked(probeWebGpuPresentation)
+      .mockImplementationOnce(async () => ({ ok: false, errors: ["no present"] }))
+      .mockImplementationOnce(async () => ({ ok: true, errors: [] }));
+    const safe = await bootstrapGlobeRenderer(canvas, { force: "webgpu" });
+    expect(safe.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: false });
+  });
+
   it("uses persisted WebGPU with a presentation probe", async () => {
     window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgpu");
     const { bootstrapGlobeRenderer } = await import("./createRendererMode");

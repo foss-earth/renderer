@@ -6,6 +6,11 @@ export interface RenderSchedulerOptions {
    * scheduler keeps rendering on the next frame (e.g. inertial decay).
    */
   shouldKeepRendering?: () => boolean;
+  /**
+   * The least time between two ticks, ms, read each frame: `renderer.frameRateCap`.
+   * A frame due sooner waits for the next one. 0 or omitted: every frame.
+   */
+  minFrameIntervalMs?: () => number;
   /** rAF/cAF injection for tests. */
   requestFrame?: (cb: FrameRequestCallback) => number;
   cancelFrame?: (handle: number) => void;
@@ -46,6 +51,7 @@ export function createRenderScheduler(options: RenderSchedulerOptions): RenderSc
   let stopped = false;
   let renderRequested = false;
   let active = false;
+  let lastTickAt: number | null = null;
   const activeListeners = new Set<(active: boolean) => void>();
 
   function setActive(next: boolean): void {
@@ -60,9 +66,17 @@ export function createRenderScheduler(options: RenderSchedulerOptions): RenderSc
     setActive(true);
   }
 
-  function tick(): void {
+  function tick(time?: number): void {
     handle = 0;
     if (stopped || paused) return;
+    const now = typeof time === "number" ? time : performance.now();
+    const interval = options.minFrameIntervalMs?.() ?? 0;
+    // A millisecond early still counts: display frames arrive with jitter.
+    if (interval > 0 && lastTickAt !== null && now - lastTickAt < interval - 1) {
+      handle = requestFrame(tick);
+      return;
+    }
+    lastTickAt = now;
     renderRequested = false;
     options.tick();
     const keep =

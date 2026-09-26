@@ -27,6 +27,10 @@ export interface RendererSelection {
   fallbackReason?: string;
   /** Low-level diagnostics captured during renderer selection. */
   diagnostics?: RendererDiagnostics;
+  /** Whether it draws with multisampling: `renderer.antialias`, unless the safe WebGPU fallback turned it off. */
+  antialias?: boolean;
+  /** Whether it started drawing a pixel per device pixel; the safe WebGPU fallback draws per CSS pixel. */
+  devicePixels?: boolean;
 }
 
 export interface RendererModeOptions {
@@ -35,6 +39,8 @@ export interface RendererModeOptions {
    * WebGPU → WebGL2 → WebGL in that order (or uses a persisted client preference).
    */
   force?: RendererMode | null;
+  /** Multisampling where the renderer allows it: `renderer.antialias`. On when omitted. */
+  antialias?: boolean;
 }
 
 interface WebGpuEngineOptions {
@@ -58,8 +64,8 @@ const SAFE_WEBGPU_OPTIONS: WebGpuEngineOptions = {
   adaptToDeviceRatio: false,
 };
 
-function createWebGlEngine(canvas: HTMLCanvasElement): Engine {
-  return new Engine(canvas, true, WEBGL_ENGINE_OPTIONS, true);
+function createWebGlEngine(canvas: HTMLCanvasElement, antialias: boolean): Engine {
+  return new Engine(canvas, antialias, WEBGL_ENGINE_OPTIONS, true);
 }
 
 function actualWebGLMode(engine: Engine): "webgl" | "webgl2" {
@@ -151,10 +157,11 @@ async function probeWebGpuOnOffscreenCanvas(
 function createWebGlSelection(
   canvas: HTMLCanvasElement,
   requested: RendererMode | "auto",
+  antialias: boolean,
   fallbackReason?: string,
   diagnostics?: RendererDiagnostics,
 ): RendererSelection {
-  const engine = createWebGlEngine(canvas);
+  const engine = createWebGlEngine(canvas, antialias);
   const mode = actualWebGLMode(engine);
   persistWorkingRenderer(mode);
   return {
@@ -163,16 +170,19 @@ function createWebGlSelection(
     engine,
     fallbackReason,
     diagnostics,
+    antialias,
+    devicePixels: true,
   };
 }
 
 function createWebGlBootstrap(
   canvas: HTMLCanvasElement,
   requested: RendererMode | "auto",
+  antialias: boolean,
   fallbackReason?: string,
   diagnostics?: RendererDiagnostics,
 ): { renderer: RendererSelection; scene: Scene } {
-  const renderer = createWebGlSelection(canvas, requested, fallbackReason, diagnostics);
+  const renderer = createWebGlSelection(canvas, requested, antialias, fallbackReason, diagnostics);
   return {
     renderer,
     scene: createGlobeScene(renderer.engine),
@@ -183,8 +193,9 @@ async function initializeWebGpuRenderer(
   canvas: HTMLCanvasElement,
   requested: RendererMode | "auto",
   diagnostics: RendererDiagnostics,
+  antialias: boolean,
 ): Promise<{ renderer: RendererSelection; scene: Scene }> {
-  const attempts: WebGpuEngineOptions[] = [DEFAULT_WEBGPU_OPTIONS, SAFE_WEBGPU_OPTIONS];
+  const attempts: WebGpuEngineOptions[] = [{ ...DEFAULT_WEBGPU_OPTIONS, antialias }, SAFE_WEBGPU_OPTIONS];
   let lastError = "";
 
   for (let attempt = 0; attempt < attempts.length; attempt += 1) {
@@ -200,6 +211,8 @@ async function initializeWebGpuRenderer(
           mode: "webgpu",
           engine,
           diagnostics,
+          antialias: options.antialias,
+          devicePixels: options.adaptToDeviceRatio,
         },
         scene: createGlobeScene(engine),
       };
@@ -221,13 +234,14 @@ async function initializeWebGpuRenderer(
     { reason: lastError },
   );
 
-  return createWebGlBootstrap(canvas, requested, lastError, diagnostics);
+  return createWebGlBootstrap(canvas, requested, antialias, lastError, diagnostics);
 }
 
 async function tryWebGpuBootstrap(
   canvas: HTMLCanvasElement,
   requested: RendererMode | "auto",
   diagnostics: RendererDiagnostics,
+  antialias: boolean,
 ): Promise<{ renderer: RendererSelection; scene: Scene }> {
   try {
     const isSupported = await WebGPUEngine.IsSupportedAsync;
@@ -239,17 +253,18 @@ async function tryWebGpuBootstrap(
       return createWebGlBootstrap(
         canvas,
         requested,
+        antialias,
         "WebGPUEngine.IsSupportedAsync returned false",
         diagnostics,
       );
     }
 
-    return initializeWebGpuRenderer(canvas, requested, diagnostics);
+    return initializeWebGpuRenderer(canvas, requested, diagnostics, antialias);
   } catch (error) {
     const reason = getErrorMessage(error);
     console.warn("[renderer] WebGPU initialization failed. Falling back to WebGL.", error);
     diagnostics.isSupportedAsyncResult ??= false;
-    return createWebGlBootstrap(canvas, requested, reason, diagnostics);
+    return createWebGlBootstrap(canvas, requested, antialias, reason, diagnostics);
   }
 }
 
@@ -262,6 +277,7 @@ export async function bootstrapGlobeRenderer(
   options: RendererModeOptions = {},
 ): Promise<{ renderer: RendererSelection; scene: Scene }> {
   const force = options.force ?? null;
+  const antialias = options.antialias ?? true;
 
   if (force === "webgpu") {
     const diagnostics = getRendererDiagnostics(null);
@@ -269,11 +285,11 @@ export async function bootstrapGlobeRenderer(
       `[renderer] Forced WebGPU requested. navigator.gpu present: ${diagnostics.navigatorGpuPresent}, isSecureContext: ${diagnostics.isSecureContext}`,
       diagnostics.navigatorGpuPresent ? navigator.gpu : "(missing)",
     );
-    return tryWebGpuBootstrap(canvas, "webgpu", diagnostics);
+    return tryWebGpuBootstrap(canvas, "webgpu", diagnostics, antialias);
   }
 
   if (force === "webgl2" || force === "webgl") {
-    const engine = createWebGlEngine(canvas);
+    const engine = createWebGlEngine(canvas, antialias);
     const mode = actualWebGLMode(engine);
     persistWorkingRenderer(mode);
     return {
@@ -281,6 +297,8 @@ export async function bootstrapGlobeRenderer(
         requested: force,
         mode,
         engine,
+        antialias,
+        devicePixels: true,
       },
       scene: createGlobeScene(engine),
     };
@@ -289,7 +307,7 @@ export async function bootstrapGlobeRenderer(
   const persisted = readRendererPreference();
   if (persisted === "webgl2" || persisted === "webgl") {
     console.info(`[renderer] Using persisted client renderer preference: ${persisted}`);
-    const engine = createWebGlEngine(canvas);
+    const engine = createWebGlEngine(canvas, antialias);
     const mode = actualWebGLMode(engine);
     persistWorkingRenderer(mode);
     return {
@@ -297,6 +315,8 @@ export async function bootstrapGlobeRenderer(
         requested: "auto",
         mode,
         engine,
+        antialias,
+        devicePixels: true,
         diagnostics: {
           ...getRendererDiagnostics(),
           fromPersistedPreference: true,
@@ -311,10 +331,10 @@ export async function bootstrapGlobeRenderer(
     return tryWebGpuBootstrap(canvas, "auto", {
       ...getRendererDiagnostics(null),
       fromPersistedPreference: true,
-    });
+    }, antialias);
   }
 
-  return tryWebGpuBootstrap(canvas, "auto", getRendererDiagnostics(null));
+  return tryWebGpuBootstrap(canvas, "auto", getRendererDiagnostics(null), antialias);
 }
 
 /** @deprecated Use bootstrapGlobeRenderer — kept for tests and direct engine-only callers. */

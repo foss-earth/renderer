@@ -172,4 +172,26 @@ describe("createRenderScheduler", () => {
     expect(raf.pending()).toBe(0);
     expect(tick).not.toHaveBeenCalled();
   });
+
+  it("caps the frame rate at renderer.frameRateCap, waiting out frames that come too soon", () => {
+    const queue: FrameRequestCallback[] = [];
+    const tick = vi.fn();
+    let interval = 1000 / 30;
+    const scheduler = createRenderScheduler({
+      tick,
+      minFrameIntervalMs: () => interval,
+      requestFrame: cb => { queue.push(cb); return queue.length; },
+      cancelFrame: () => undefined,
+    });
+    // A 60 Hz display: a frame each 16.7 ms.
+    const display = (at: number) => { const cb = queue.shift(); cb?.(at); };
+    scheduler.beginContinuous();
+    for (let frame = 0; frame < 6; frame++) display(frame * (1000 / 60));
+    expect(tick).toHaveBeenCalledTimes(3);
+    // Off again: every frame.
+    interval = 0;
+    for (let frame = 6; frame < 10; frame++) display(frame * (1000 / 60));
+    expect(tick).toHaveBeenCalledTimes(7);
+    scheduler.stop();
+  });
 });

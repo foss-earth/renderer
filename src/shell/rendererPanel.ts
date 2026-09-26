@@ -1,5 +1,8 @@
 import type { RendererMode, RendererSelection } from "../engine/babylon/createRendererMode";
+import { getAppSettings } from "../settings/appSettings";
+import type { SettingsRegistry } from "../settings/registry";
 import { checkChoice, createChoiceGroup, createChoiceNote } from "./choiceGroup";
+import { appendHostSections, createParameterSection, createSectionsElement } from "./settings/parameterSection";
 
 const RENDERER_CHOICE_NAME = "foss-earth-renderer";
 
@@ -11,6 +14,8 @@ export interface RendererPanelOptions {
    * reload, so the host saves the choice and reloads.
    */
   onChange(force: RendererMode | null): void;
+  /** The registry of the tab's parameters; the app's when omitted. */
+  settings?: SettingsRegistry;
 }
 
 export interface RendererPanelHandle {
@@ -40,8 +45,12 @@ function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["
   ].filter((line): line is string => line !== null);
 }
 
-/** The contents of the Renderer tab: which GPU API draws the globe. */
+/**
+ * The contents of the Renderer tab: which GPU API draws the globe, then any
+ * section a host's parameters are homed in, such as 0sfs's Instruments.
+ */
 export function createRendererPanel(options: RendererPanelOptions): RendererPanelHandle {
+  const settings = options.settings ?? getAppSettings();
   const element = document.createElement("div");
   element.className = "foss-earth-choice-panel";
   const group = createChoiceGroup(RENDERER_CHOICE_NAME, "Renderer", [
@@ -70,12 +79,19 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
     options.onChange(value === "webgpu" || value === "webgl2" || value === "webgl" ? value : null);
   };
   element.addEventListener("change", onChange);
+  const backend = createParameterSection(settings, { tab: "renderer", section: "backend", main: element, covers: ["renderer.backend"] });
+  const sections = createSectionsElement([
+    { id: "renderer.backend", title: settings.getSectionTitle("renderer", "backend"), element: backend.element, defaultOpen: true },
+  ]);
+  const hostSections = appendHostSections(settings, "renderer", sections, ["backend"]);
 
   return {
-    element,
+    element: sections.element,
     destroy(): void {
       element.removeEventListener("change", onChange);
-      element.remove();
+      backend.destroy();
+      hostSections.destroy();
+      sections.destroy();
     },
   };
 }

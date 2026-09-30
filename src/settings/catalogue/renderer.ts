@@ -98,3 +98,83 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/engine/babylon/createBabylonRuntime.ts",
   },
 ];
+
+/**
+ * Changes that should draw the same picture with less work, each off until
+ * A/B checks and device trials confirm it (docs/validation/panorama-experiments.md;
+ * candidate numbers from docs/webgl-panorama-performance-review.md). `all`
+ * holds every other one on while it is on.
+ */
+export const RENDERER_EXPERIMENT_IDS = {
+  all: "renderer.experiments.all",
+  panoramaBookkeeping: "renderer.experiments.panoramaBookkeeping",
+  opaqueImmersion: "renderer.experiments.opaqueImmersion",
+  panoramaShaders: "renderer.experiments.panoramaShaders",
+  presentationCandidates: "renderer.experiments.presentationCandidates",
+} as const;
+
+const EXPERIMENT_REASON = "Under A/B validation: meant to draw the same picture with less work, not yet confirmed on devices.";
+const experimentHome = { tab: RENDERER_TAB, section: "experiments", level: "main" } as const;
+
+export const RENDERER_EXPERIMENT_PARAMETERS: readonly ParameterSpec[] = [
+  {
+    id: RENDERER_EXPERIMENT_IDS.all,
+    label: "All work-saving experiments",
+    description: "Turns on every experiment in this section at once; each stays on while this is.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: EXPERIMENT_REASON,
+    home: experimentHome,
+    appliesLive: true,
+    source: "src/settings/appSettings.ts",
+  },
+  {
+    id: RENDERER_EXPERIMENT_IDS.panoramaBookkeeping,
+    label: "Panorama draws without test records",
+    description: "Stops recording every panorama draw, its camera as text and earlier frames' uniforms, which only the renderer's own checks read; a check turns recording back on. Review candidate 5.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: EXPERIMENT_REASON,
+    home: experimentHome,
+    appliesLive: true,
+    source: "src/engine/babylon/panorama/panoramaRenderer.ts",
+  },
+  {
+    id: RENDERER_EXPERIMENT_IDS.opaqueImmersion,
+    label: "Opaque panorama",
+    description: "Draws a panorama shown at full opacity without blending it over the frame behind, crossfades between two of its images included; fades from the globe still blend. Review candidate 6.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: EXPERIMENT_REASON,
+    home: experimentHome,
+    appliesLive: true,
+    source: "src/engine/babylon/panorama/panoramaRenderer.ts",
+  },
+  {
+    id: RENDERER_EXPERIMENT_IDS.panoramaShaders,
+    label: "Simpler panorama shaders",
+    description: "WebGL only: works out each orb's per-draw constants once on the CPU instead of in every pixel, turns the panorama's view into the image's frame in the vertex shader, and normalizes each ray once or, for a cube, not at all. Review candidate 7.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: EXPERIMENT_REASON,
+    home: experimentHome,
+    appliesLive: true,
+    source: "src/engine/babylon/panorama/panoramaRenderer.ts",
+  },
+  {
+    id: RENDERER_EXPERIMENT_IDS.presentationCandidates,
+    label: "Skip the hidden globe during a panorama",
+    description: "While a panorama replaces the globe, offers the renderer only the meshes it can draw, instead of preparing every retained map tile twice a frame before hiding it. Review candidate 3.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: EXPERIMENT_REASON,
+    home: experimentHome,
+    appliesLive: true,
+    source: "src/engine/babylon/presentationCandidates.ts",
+  },
+];

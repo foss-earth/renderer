@@ -16,11 +16,13 @@ const mockState = vi.hoisted(() => ({
   probeOk: true,
   probeErrors: [] as string[],
   probeCalls: [] as unknown[],
+  sceneDepthModes: [] as boolean[],
 }));
 
 vi.mock("@babylonjs/core", () => {
   class MockWebGPUEngine {
     static IsSupportedAsync = Promise.resolve(mockState.isSupportedAsync);
+    useReverseDepthBuffer = false;
 
     initAsync = mockState.webGpuInitAsync;
     dispose = mockState.webGpuDispose;
@@ -39,6 +41,7 @@ vi.mock("@babylonjs/core", () => {
 
   class MockEngine {
     webGLVersion = 2;
+    useReverseDepthBuffer = false;
 
     constructor(canvas: HTMLCanvasElement, ...args: unknown[]) {
       mockState.webGlCtor(canvas, ...args);
@@ -51,6 +54,9 @@ vi.mock("@babylonjs/core", () => {
     activeCamera: MockFreeCamera | null = null;
     render = mockState.webGpuSceneRender;
     dispose = mockState.webGpuSceneDispose;
+    constructor(engine: { useReverseDepthBuffer: boolean }) {
+      mockState.sceneDepthModes.push(engine.useReverseDepthBuffer);
+    }
   }
 
   class MockFreeCamera {
@@ -118,10 +124,22 @@ beforeEach(() => {
   mockState.probeOk = true;
   mockState.probeErrors = [];
   mockState.probeCalls = [];
+  mockState.sceneDepthModes = [];
   mockState.webGpuInitAsync.mockResolvedValue(undefined);
 });
 
 describe("bootstrapGlobeRenderer", () => {
+  it.each(["webgl", "webgl2", "webgpu"] as const)("uses reverse depth before creating the %s scene or presentation probe", async force => {
+    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
+    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { force });
+    expect(renderer.engine.useReverseDepthBuffer).toBe(true);
+    expect(mockState.sceneDepthModes.length).toBeGreaterThan(0);
+    expect(mockState.sceneDepthModes.every(Boolean)).toBe(true);
+    for (const [engine] of vi.mocked(probeWebGpuPresentation).mock.calls) {
+      expect(engine.useReverseDepthBuffer).toBe(true);
+    }
+  });
   it("persists WebGL2 when WebGPU presentation probe fails in auto mode", async () => {
     mockState.probeOk = false;
     mockState.probeErrors = ["Requested allocation size (204800) is smaller than the image requires (311296)."];
@@ -133,6 +151,7 @@ describe("bootstrapGlobeRenderer", () => {
 
     expect(renderer.requested).toBe("auto");
     expect(renderer.mode).toBe("webgl2");
+    expect(renderer.engine.useReverseDepthBuffer).toBe(true);
     expect(renderer.fallbackReason).toContain("allocation size");
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgl2");
     expect(mockState.webGpuDispose).toHaveBeenCalled();

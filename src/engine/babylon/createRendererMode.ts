@@ -65,7 +65,12 @@ const SAFE_WEBGPU_OPTIONS: WebGpuEngineOptions = {
 };
 
 function createWebGlEngine(canvas: HTMLCanvasElement, antialias: boolean): Engine {
-  return new Engine(canvas, antialias, WEBGL_ENGINE_OPTIONS, true);
+  const engine = new Engine(canvas, antialias, WEBGL_ENGINE_OPTIONS, true);
+  // A globe and a near camera share one depth buffer. Conventional depth
+  // collapses distinct distant surfaces into the same value; reversing it
+  // keeps their separation without another pass or fragment-depth shader.
+  engine.useReverseDepthBuffer = true;
+  return engine;
 }
 
 function actualWebGLMode(engine: Engine): "webgl" | "webgl2" {
@@ -126,6 +131,7 @@ async function createWebGpuEngine(
     deviceDescriptor: { requiredFeatures: ["timestamp-query"] },
   });
   await webGpuEngine.initAsync();
+  webGpuEngine.useReverseDepthBuffer = true;
   return webGpuEngine;
 }
 

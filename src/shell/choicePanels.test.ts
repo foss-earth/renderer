@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMapSourcePanel, type MapSourceStatus } from "./mapSourcePanel";
 import { createRendererPanel } from "./rendererPanel";
+import { getAppSettings } from "../settings/appSettings";
 
 afterEach(() => document.body.replaceChildren());
 
@@ -94,6 +95,26 @@ describe("Map tab", () => {
 });
 
 describe("Renderer tab", () => {
+  it("homes exposure and ambient fill once in the shared Lighting and exposure section", () => {
+    const settings = getAppSettings();
+    const panel = createRendererPanel({ renderer: { mode: "webgl2", requested: "auto" }, settings, onChange: vi.fn() });
+    document.body.append(panel.element);
+    try {
+      const section = panel.element.querySelector('[data-settings-section="renderer/lighting"]')!;
+      expect(panel.element.textContent).toContain("Lighting and exposure");
+      for (const [id, initial, next] of [["renderer.exposureEV", 0, 2], ["renderer.ambientFillMultiplier", 1, 0]] as const) {
+        expect(panel.element.querySelectorAll(`[data-parameter="${id}"]`)).toHaveLength(1);
+        const control = section.querySelector(`[data-parameter="${id}"]`)!;
+        const field = control.querySelector<HTMLInputElement>('input[type="number"]')!;
+        expect(Number(field.value)).toBe(initial);
+        expect(control.querySelector('input[type="range"]')).not.toBeNull();
+        field.value = String(next);
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        expect(settings.get(id)).toBe(next);
+      }
+    } finally { panel.destroy(); }
+  });
+
   it("says a chosen renderer did not start, and shows why", () => {
     const panel = createRendererPanel({
       renderer: {

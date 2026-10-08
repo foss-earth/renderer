@@ -2,6 +2,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMapSourcePanel, type MapSourceStatus } from "./mapSourcePanel";
 import { createRendererPanel } from "./rendererPanel";
+import { createSkyPanel } from "./skyPanel";
+import { fixedTimeValues } from "./dateTimePanel";
+import { solarPosition } from "../sky/solarPosition";
 import { getAppSettings } from "../settings/appSettings";
 
 afterEach(() => document.body.replaceChildren());
@@ -95,22 +98,13 @@ describe("Map tab", () => {
 });
 
 describe("Renderer tab", () => {
-  it("homes exposure and ambient fill once in the shared Lighting and exposure section", () => {
+  it("leaves exposure and the fill light to the Sky tab", () => {
     const settings = getAppSettings();
     const panel = createRendererPanel({ renderer: { mode: "webgl2", requested: "auto" }, settings, onChange: vi.fn() });
-    document.body.append(panel.element);
     try {
-      const section = panel.element.querySelector('[data-settings-section="renderer/lighting"]')!;
-      expect(panel.element.textContent).toContain("Lighting and exposure");
-      for (const [id, initial, next] of [["renderer.exposureEV", 0, 2], ["renderer.ambientFillMultiplier", 1, 0]] as const) {
-        expect(panel.element.querySelectorAll(`[data-parameter="${id}"]`)).toHaveLength(1);
-        const control = section.querySelector(`[data-parameter="${id}"]`)!;
-        const field = control.querySelector<HTMLInputElement>('input[type="number"]')!;
-        expect(Number(field.value)).toBe(initial);
-        expect(control.querySelector('input[type="range"]')).not.toBeNull();
-        field.value = String(next);
-        field.dispatchEvent(new Event("change", { bubbles: true }));
-        expect(settings.get(id)).toBe(next);
+      expect(panel.element.textContent).not.toContain("Lighting and exposure");
+      for (const id of ["renderer.exposureEV", "renderer.ambientFillMultiplier"]) {
+        expect(panel.element.querySelectorAll(`[data-parameter="${id}"]`)).toHaveLength(0);
       }
     } finally { panel.destroy(); }
   });
@@ -140,5 +134,73 @@ describe("Renderer tab", () => {
     expect(onChange).toHaveBeenLastCalledWith(null);
     panel.element.querySelector<HTMLInputElement>('input[value="webgl"]')!.click();
     expect(onChange).toHaveBeenLastCalledWith("webgl");
+  });
+});
+
+describe("Sky tab", () => {
+  const MINNEAPOLIS = { latDeg: 44.977753, lonDeg: -93.265011 };
+
+  it("homes atmosphere, the Moon and stars, the ground, night lights and exposure once each, with the controls that were the Renderer tab's", () => {
+    const settings = getAppSettings();
+    const panel = createSkyPanel({ settings, getPlace: () => MINNEAPOLIS });
+    document.body.append(panel.element);
+    try {
+      expect([...panel.element.querySelectorAll<HTMLElement>("[data-section]")].map(element => element.dataset.section))
+        .toEqual(["sky.atmosphere", "sky.night", "sky.surface", "sky.nightLights", "sky.exposure"]);
+      expect(panel.element.textContent).toContain("Exposure and display");
+      // The sky is on unless turned off; the fill light is a control only while it is off.
+      expect(panel.element.querySelector('[data-parameter="renderer.ambientFillMultiplier"]')).toBeNull();
+      settings.set("sky.model", "off");
+      // The values saved under the Renderer tab's ids are these controls' values.
+      for (const [id, section, initial, next] of [["renderer.exposureEV", "sky/exposure", 0, 2], ["renderer.ambientFillMultiplier", "sky/atmosphere", 1, 0]] as const) {
+        expect(panel.element.querySelectorAll(`[data-parameter="${id}"]`)).toHaveLength(1);
+        const control = panel.element.querySelector(`[data-settings-section="${section}"] [data-parameter="${id}"]`)!;
+        const field = control.querySelector<HTMLInputElement>('input[type="number"]')!;
+        expect(Number(field.value)).toBe(initial);
+        expect(control.querySelector('input[type="range"]')).not.toBeNull();
+        field.value = String(next);
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+        expect(settings.get(id)).toBe(next);
+      }
+      // The time is the Date and time tab's: none of its controls are here. The fill light shows only while no sky model lights the scene.
+      settings.setMany({ "sky.time.mode": "fixed", "sky.model": "dome" });
+      expect(panel.element.querySelector('[data-parameter^="sky.time."]')).toBeNull();
+      expect(panel.element.querySelector('[data-parameter="renderer.ambientFillMultiplier"]')).toBeNull();
+      expect(panel.element.querySelector('[data-parameter="sky.exposure.meterRange"]')).not.toBeNull();
+      expect(panel.element.querySelector('[data-parameter="sky.exposure.ev100"]')).toBeNull();
+    } finally {
+      panel.destroy();
+      settings.resetAll({ tab: "sky" });
+      settings.resetAll({ tab: "time" });
+    }
+  });
+
+  it("says where the Sun is at the time in use, and links to the tab that sets it", () => {
+    const settings = getAppSettings();
+    let place: { latDeg: number; lonDeg: number } | null = null;
+    const openDateTime = vi.fn();
+    const panel = createSkyPanel({ settings, getPlace: () => place, now: () => Date.UTC(2026, 9, 7, 20, 0), openDateTime });
+    document.body.append(panel.element);
+    try {
+      expect(panel.element.textContent).toContain("The place shown is not known yet.");
+      place = MINNEAPOLIS;
+      settings.setMany(fixedTimeValues(Date.UTC(2026, 9, 7, 23, 41)));
+      // About 18:41 Central Daylight Time, sunset: the Sun's disc on the horizon, in the west-south-west.
+      const sun = solarPosition({ utcMs: Date.UTC(2026, 9, 7, 23, 41), ...MINNEAPOLIS });
+      expect(panel.element.textContent).toContain(`At the set time, 17:40 solar time on 2026-10-07, the Sun is ${Math.abs(90 - sun.zenithDeg).toFixed(1)}°`);
+      expect(panel.element.textContent).toMatch(/bearing 26\d°/);
+      const link = [...panel.element.querySelectorAll("button")].find(button => button.textContent === "Date and time")!;
+      link.click();
+      expect(openDateTime).toHaveBeenCalledTimes(1);
+      settings.set("sky.time.mode", "now");
+      expect(panel.element.textContent).toContain("Now, 13:59 solar time on 2026-10-07, the Sun is");
+    } finally {
+      panel.destroy();
+      settings.resetAll({ tab: "time" });
+    }
+    // A host that has no Date and time tab gets the line and no link.
+    const plain = createSkyPanel({ settings, getPlace: () => MINNEAPOLIS });
+    expect([...plain.element.querySelectorAll("button")].some(button => button.textContent === "Date and time")).toBe(false);
+    plain.destroy();
   });
 });

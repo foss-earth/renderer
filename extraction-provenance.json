@@ -4,7 +4,7 @@
   "packageVersion": "0.1.0",
   "sourceRepository": "https://github.com/foss-earth/foss-earth.github.io.git",
   "sourceRevision": "90e23b3ee96f53ec5900afc5991a21fffa58649d",
-  "sourcePolicy": "Committed source only; original dirty weather/height/atmosphere inputs excluded. Independent clean filtered lineage preserves every human author/committer header; original-to-clean-to-filtered mapping is in SOURCE_LINEAGE.json. Common full-ref audit and publication admission remain pending.",
+  "sourcePolicy": "Committed source only; unrelated dirty weather/height/atmosphere inputs excluded. Existing SOURCE_LINEAGE.json and frozen source553500e preserve prior accepted filtered subset evidence unchanged. Current expanded selected original paths and unchecked increment still require primary clean filtered lineage integration preserving every human author/committer header. Common full-ref audit and remote publication admission remain pending.",
   "license": "AGPL-3.0-only",
   "mappings": [
     {
@@ -26,10 +26,10 @@
       "destinations": [
         {
           "path": "src/renderScheduler.ts",
-          "sha256": "c33a81e571b52b06e75a75a5f59f84ca7d62bd98ad693bd6ad378e69385ee049"
+          "sha256": "9bb6be37e1448cd27ba1e25df603f993975ff00e851f14f28950d2338957aac8"
         }
       ],
-      "transformation": "Preserved scheduler implementation; require host frame ports, replace DOM callback type with RenderFrameCallback, use supplied monotonic frame timestamp."
+      "transformation": "Preserved scheduler implementation; require host frame ports, replace DOM callback type with RenderFrameCallback, use supplied monotonic frame timestamp. Primary source increment: scheduler stop clears pending/continuous/observer state despite cancel/notification failure; all activity listeners are attempted and stale registrations cannot retain a stopped authority. Causal source fixture is unrun. Follow-up source increment: reentrant activity transitions supersede stale notification snapshots; observers receive the captured transition once. Causal source fixture is unrun. Additive source-only WorkRenderScheduler and optional work(timeMs)/shouldKeepWorking ports separate hidden preparation from presentation on the same host RAF; legacy structural interface, original positive fixture prefix, cap jitter, continuous trailing frame and unpause first draw retained. All 16 new causal cases are UNRUN."
     },
     {
       "sourcePath": "src/engine/babylon/renderScheduler.test.ts",
@@ -38,10 +38,10 @@
       "destinations": [
         {
           "path": "tests/renderScheduler.test.ts",
-          "sha256": "39cb46b99e37cdf2e83f302d89ff82dd0c523d7b7247a7ea74f23dbd97b92993"
+          "sha256": "36f121ff0bd937339c3251dbdc750909a487e199683ee6ce26de95eae30249e3"
         }
       ],
-      "transformation": "Preserved source tests with explicit .js import and DOM-neutral callback type; added in-tick request and active-state subscription regression coverage."
+      "transformation": "Preserved source tests with explicit .js import and DOM-neutral callback type; added in-tick request and active-state subscription regression coverage. Primary source increment: scheduler stop clears pending/continuous/observer state despite cancel/notification failure; all activity listeners are attempted and stale registrations cannot retain a stopped authority. Causal source fixture is unrun. Follow-up source increment: reentrant activity transitions supersede stale notification snapshots; observers receive the captured transition once. Causal source fixture is unrun. Additive source-only WorkRenderScheduler and optional work(timeMs)/shouldKeepWorking ports separate hidden preparation from presentation on the same host RAF; legacy structural interface, original positive fixture prefix, cap jitter, continuous trailing frame and unpause first draw retained. All 16 new causal cases are UNRUN."
     },
     {
       "sourcePath": "src/engine/babylon/sceneUpdates.ts",
@@ -50,14 +50,14 @@
       "destinations": [
         {
           "path": "src/babylon/sceneUpdates.ts",
-          "sha256": "521b0697b4fbd886ab88162f592fdd1236a33bbe1591529194fe45352079d737"
+          "sha256": "87012412cc00f51b1fac04932602bbd6abaf95bd45888d2327cba02b603bce42"
         },
         {
           "path": "src/readiness.ts",
           "sha256": "1cc2b8b1ad9b9a9d35a1616ef2a290c7bef2a6d42288def1213d91fa4f45cab3"
         }
       ],
-      "transformation": "Preserved Babylon scene observation/readiness behavior; generic polling extracted to pure core, host policy option exposed, cancellation suppresses already-dequeued checks."
+      "transformation": "Preserved Babylon scene observation/readiness behavior; generic polling extracted to pure core, host policy option exposed, cancellation suppresses already-dequeued checks. Partial observable startup releases earlier registrations; disposal cancels readiness and attempts all observer removals once despite failures, retaining original frame/readiness behavior."
     },
     {
       "sourcePath": "src/engine/babylon/sceneUpdates.test.ts",
@@ -170,10 +170,10 @@
       "destinations": [
         {
           "path": "src/babylon/rendererLifecycle.ts",
-          "sha256": "e75965ba0c06a45b937d3665fa9633b6958e9eceef5861cc84c3a67a64735b1e"
+          "sha256": "c66bee90d8146b4293ffbfa03b0af453a49193487d192efb4893c28d130761f3"
         }
       ],
-      "transformation": "Mixed-runtime renderer extraction only: resolution/device context/antialias note, source active/idle readiness, saved renderer watches, resize/visibility, context-loss generation and restored frame, begin/end frame bracketing. Existing scheduler/scene/device/settings supplied; camera clipping and lease teardown injected. Full runtime, terrain/Sky/camera/feature implementations excluded."
+      "transformation": "Mixed runtime renderer extraction only, as prior candidate, now explicit host navigation lease teardown before resource invalidation/loss subscribers. Scene/device/scheduler/settings/clipping host-owned; no map/camera/Sky implementation. Renderer-only borrowed binding additionally rolls back partial startup, including candidate/scene-update/settings/platform/scheduler/context observers; every owned stop attempted once and stale callbacks inert. Supplied scene/device/scheduler are not disposed; already applied host state is not transactionally restored."
     },
     {
       "sourcePath": "src/shell/rendererPanel.ts",
@@ -210,7 +210,7 @@
       "destinations": [
         {
           "path": "src/settings/catalogue.ts",
-          "sha256": "8e083c69d270e4f86165bd4ecb96b15311e0109346789acc9b699b2e4e71bf00"
+          "sha256": "1273bcfed7514a67ea842df0b628f64bdc4bcf5ee65733348bd3047047c8af63"
         }
       ],
       "transformation": "Exact records/IDs/homes/defaults/bounds retained; type-only public UI import. Generic renderer experiments and legacy 360 feature records have separate handoff views."
@@ -226,38 +226,1192 @@
         }
       ],
       "transformation": "Exact original source notices."
+    },
+    {
+      "sourcePath": "src/engine/babylon/panorama/panoramaTextures.ts",
+      "sourceBlob": "722ef56be4d208cede92f1731baf5585b48ae6bb",
+      "sourceSha256": "6469832d19e50172e15dfc6589ffa4047b266c99f426d616a9f73befc56cec68",
+      "destinations": [
+        {
+          "path": "src/babylon/imageTextureUpload.ts",
+          "sha256": "6e907f10adb34d765bacf85c60b365e2ee774e7d17dc8eb525e58a8a39e04d47"
+        },
+        {
+          "path": "src/babylon/imageUploadTypes.ts",
+          "sha256": "3926c53170ae53f082c0b8762dd56b519cf7ee42e048b7d7b18770369cb9a2c4"
+        }
+      ],
+      "transformation": "Extract generic supplied-scene RGBA8 allocation/row queue/mips and request contracts; no projection/imported conventions. One host pump, direct broker upload tickets held through nonabortable completion/partial failure and observed loss. Guard reentrant abort so another queued job cannot be removed; reject retired backend. Optional textureColor flags preserve legacy map encoded/material metadata without changing default360. Validate actual device dimensions/layer shape/flags before allocation; complete six layers/mip submission hook before publication. Current source-only repair gives pending/published/failed ownership states; late completion rejection reports once through required host invalidatePublishedSource rather than disposing caller-owned texture. Throwing/rejected host callbacks recorded in bounded latest stats; stale async error cannot overwrite newer failure. All causal tests unrun. Pending-state admission guard suppresses native copy when reserveUpload reenters cancellation; no-submission grant releases immediately; causal cases unrun."
+    },
+    {
+      "sourcePath": "src/engine/babylon/panorama/panoramaWebGlTextures.ts",
+      "sourceBlob": "0f1910da339e6ad9f5421995a498d3cfde38d606",
+      "sourceSha256": "e5c4b3131b9e7c708157314212b7a0fb1961eefb72bfde9c2529aa4e01137e29",
+      "destinations": [
+        {
+          "path": "src/babylon/imageTextureUploadWebGl.ts",
+          "sha256": "1ed88b7d1a10fc304fdd59a07526e54ab4e4d4370c79a460afb040cbf922d381"
+        },
+        {
+          "path": "src/babylon/textureUploadState.ts",
+          "sha256": "f475841d6f034b89f16c7bd08cb0de298b587194ab4509d2e21f53dbab2c7cf8"
+        }
+      ],
+      "transformation": "Extract generic GL1/2 row uploads, legal POT/NPOT mip behavior and state restoration. Canvas/decoded/upload grants injected; partial submissions/fence failures retain tickets until true completion/loss. Reentrant abort/loss guards preserve queued peers and release current-loss grants. Optional false/true color pair preserves legacy material-gamma metadata; explicit unsupported GL native sRGB storage refuses before allocation. NPOTGL1 source behavior is not qualification of legacy Babylon resize path. An allocation returned by native construction is retained locally until pixel-state restoration succeeds, so a throwing restoration cannot orphan it. Current source-only repair keeps all unpublished ready jobs visible to reentrant cancelAll during fence/flush; observed loss during fence creation/finish drains direct native grants without duplicate publication/release. All causal tests unrun. Pending-state checks after upload/decoded staging admission, canvas/context and binding ports suppress later draws/copies after cancellation; no new decoded retain or private authority. Causal cases unrun. Source-only additive completion-aware admission/private RGBA8 batches and independent WebGL staging/job cleanup; original selected source and behavior cases retained. New causal/public fixtures are UNRUN; no native or artifact qualification."
+    },
+    {
+      "sourcePath": "src/engine/babylon/panorama/panoramaWebGlTextures.test.ts",
+      "sourceBlob": "2b6058f89323816d2f14df1044ef6242cc2e465d",
+      "sourceSha256": "bf1677c7fd710eb914db2f6e60e8295381b87ec23d02522e2295b9be6ecff144",
+      "destinations": [
+        {
+          "path": "tests/imageTextureUploadWebGl.test.ts",
+          "sha256": "5aa9812cd5ba7afd0e8cf5b7332d23c3f0df0a32be65a7a3282ea9fa481e3e02"
+        }
+      ],
+      "transformation": "Retain original legal/backend behavior cases using injected canvas/layer order; causal cancellation/partial submission/failed fence/multi-job/six-face/context-loss/color compatibility cases prepared, unexecuted. Six additional causal cases prepared: fence/flush cancellation with/without observed loss, batch ready-peer cancellation, finish-triggered actual loss. Zero executed. Source-only additive completion-aware admission/private RGBA8 batches and independent WebGL staging/job cleanup; original selected source and behavior cases retained. New causal/public fixtures are UNRUN; no native or artifact qualification."
+    },
+    {
+      "sourcePath": "src/perf/frameProfiler.ts",
+      "sourceBlob": "2a2f93633560cc52587bc92a5ad4f6f9a9683b1b",
+      "sourceSha256": "6677abf145d135c4ecd3a82c9cf4efac57e406249cfa09a314df09bf5e366b2a",
+      "destinations": [
+        {
+          "path": "src/profiling/frameProfiler.ts",
+          "sha256": "72768794d2f8127278f3c2eb8fe476a0bcc9dbd9739108ef1bda2e27ada90ee2"
+        },
+        {
+          "path": "src/babylon/frameProfiler.ts",
+          "sha256": "75246ad8565c33c399aae5ce09ae88d4a056f9e29ca568da512980d88277f29e"
+        }
+      ],
+      "transformation": "Preserve pure rolling summaries/window/trace/section hierarchy and Babylon CPU/GPU measurement separately. Require injected monotonic clock in pure profiler; no Babylon/DOM/engine import in core. Babylon measurements preserve owned-vs-borrowed GPU timer behavior; clock-zero section timing and idempotent full observer teardown corrected."
+    },
+    {
+      "sourcePath": "src/perf/frameProfileSession.ts",
+      "sourceBlob": "d87b14b2bf651ad8d3a464f78e9858b79569d807",
+      "sourceSha256": "c28fb3b9c162ecd22ba549eebde90b89b4be9b2b2faf0b1d1ce8f64a6a40a916",
+      "destinations": [
+        {
+          "path": "src/profiling/frameProfileSession.ts",
+          "sha256": "9cfc8d8035a12121a7cc5e4fdcfce05741c73e9d9028643a9033e74ce5345611"
+        },
+        {
+          "path": "src/babylon/frameProfileSession.ts",
+          "sha256": "ea1d5fb199e4d37eb6b11d436f879e09e492b90526fcc78996290b0006fbd085"
+        }
+      ],
+      "transformation": "Pure measurement attachment/session lifetime uses injected profiler/measure/capability and structural settings get/watch ports. Optional Babylon adapter supplies source scene/engine measurement and requires existing profiler or host clock; provided enabled profiler attaches once; throwing teardown becomes permanently disposed. Host remains one frame boundary/scheduler. Settings binding acquires watchers sequentially and rolls back earlier registrations on failure; detach attempts all once and disables stale callbacks without disposing the borrowed session/registry."
+    },
+    {
+      "sourcePath": "src/perf/index.ts",
+      "sourceBlob": "a8f389ec7cdc84b795941232f19d2b96cf8d74a6",
+      "sourceSha256": "ca3b7413fd478df1dec6460bab7efc7db433180884c2b00e61802261f2449a25",
+      "destinations": [
+        {
+          "path": "src/profiling/index.ts",
+          "sha256": "13883ce127f11c22c098bab30de7e6f5c011a04c2bda04b6376383d899fd1925"
+        }
+      ],
+      "transformation": "Reconstruct public profiling barrel by responsibility; pure APIs stay in root/profiling, optional Babylon measurements/session adapter and UI panel exported separately. No culling/engine geometry is copied."
+    },
+    {
+      "sourcePath": "src/perf/frameProfiler.test.ts",
+      "sourceBlob": "4ac4467f2355e3d88b4b5a52aeff076c56500333",
+      "sourceSha256": "dd9aa95d03bafd36660ba75d1e3488f2e4795ac9af4022b1d1c8d49d8ec54015",
+      "destinations": [
+        {
+          "path": "tests/frameProfiler.test.ts",
+          "sha256": "5b81367a53e3f9a7e17dece2c4618dfcc2036343851f94c15a324da1e8cfad9d"
+        }
+      ],
+      "transformation": "Retain original behavior cases with public destination .js imports; add causal Babylon timing-from-zero/observer teardown fixture. Names of host timing sections are records/examples only, not host implementations."
+    },
+    {
+      "sourcePath": "src/perf/frameProfileSession.test.ts",
+      "sourceBlob": "19f887f09e362193a4db03267c1af7ba87447634",
+      "sourceSha256": "ac5b0971722e381750f365b093b9f36f43226c081252c380dd3dcc8f07d671af",
+      "destinations": [
+        {
+          "path": "tests/frameProfileSession.test.ts",
+          "sha256": "a4d9380c1d357c750820256fa5a00f1a42c045b4adcd44923127f9c0b3a4f9aa"
+        }
+      ],
+      "transformation": "Retain observer enable/disable/capability/parameter behavior tests with public UI registry and explicit host clock."
+    },
+    {
+      "sourcePath": "src/shell/frameBudgetPanel.ts",
+      "sourceBlob": "415be558bb8a4426ff2bfae325230f0aa22d6f62",
+      "sourceSha256": "1e2479526bcb8698756cd28b05e91420d5f58a57d98d2159fb9aa2a0e5248e8c",
+      "destinations": [
+        {
+          "path": "src/panel/frameBudgetPanel.ts",
+          "sha256": "1085763adfdf5a3755cda471e56f10b4f5e5174ae903190b3a67a947f0e26537"
+        }
+      ],
+      "transformation": "Preserve table/status/controls/percentiles/trace/readings/notes/actions and current parameter homes; require injected host registry/document/UI controls/shared refresh/output ports. No application singleton, clipboard/download globals or independent interval. Existing refreshMs gates host notifications; lifecycle teardown idempotent."
+    },
+    {
+      "sourcePath": "src/shell/frameBudgetPanel.test.ts",
+      "sourceBlob": "cece0736291247a6d991d720c6e22426aa86e9ed",
+      "sourceSha256": "e4655684b3792c9dd07fc68654adb9373efda29b389574a12f3f32299103777a",
+      "destinations": [
+        {
+          "path": "tests/frameBudgetPanel.test.ts",
+          "sha256": "33f9d57680d629399ac63e586283d3ab7887210aff3e4f9832d80b1590797757"
+        }
+      ],
+      "transformation": "Retain original current controls/table/trace/state/stop scenarios using public UI factories and manual shared host refresh rather than private fake timers; add hidden/disposed refresh and injected output fixtures."
+    },
+    {
+      "sourcePath": "src/settings/catalogue/profiling.ts",
+      "sourceBlob": "0e42fea0b91a85cbb5e207e4640aeae829bc25f5",
+      "sourceSha256": "e207fc0c251f60476fdbbc25257505d18f7541dbb7f0cdaf0b5b1f727db2c72c",
+      "destinations": [
+        {
+          "path": "src/settings/profiling.ts",
+          "sha256": "ee8f1deb1c3e2baf5ccfadb3147c4f617ac7bf8feede664f9f7bac8a836b1713"
+        },
+        {
+          "path": "src/profiling/ids.ts",
+          "sha256": "71507adda579ee8625f67a8a39951661d3e44aa510a47740b07d7add70ccf3ab"
+        }
+      ],
+      "transformation": "Preserve four exact renderer.profiling IDs, dynamic home, units, bounds, defaults, reasons, session-only flags and source references. Pure IDs separated from optional type-only public UI parameter catalogue."
+    },
+    {
+      "sourcePath": "src/styles/hud.css",
+      "sourceBlob": "cbd0c99b22835493f0ee659a73bdc89bd4258f7b",
+      "sourceSha256": "cc221b7efd23f13037023bbc095ecdfeb150f5cd9cd959ec49c5a26f6399dff4",
+      "destinations": [
+        {
+          "path": "src/styles/frameBudget.css",
+          "sha256": "c3a71dd021183e74a2ba4c5f8fa3a91a61ef809403aeae14fb2ca6cb5fb4a650"
+        }
+      ],
+      "transformation": "Mixed stylesheet extraction: exact frame-budget panel/results/table/group/scroll rules only. Generic choices/controls/styles stay UI and host branding remains site-owned."
+    },
+    {
+      "sourcePath": "src/engine/babylon/panorama/panoramaTileAtlas.ts",
+      "sourceBlob": "9caeb95894b673d7f16995191f978640ac71ddfe",
+      "sourceSha256": "7b33074646f755fe7d6b6c973fa9361a46efcbf10c7c1e9d10aadd587721618c",
+      "destinations": [
+        {
+          "path": "src/babylon/imageRegionDevice.ts",
+          "sha256": "30c3f700a54dad2a51a95198bd6736806002d97ebed5b80c48fec444aea5a1df"
+        }
+      ],
+      "transformation": "Mixed tile-atlas extraction of generic borrowed-device mutable 2D allocation/bitmap/raw copy only; atlas layout/slots/tables/warp remain tiled-cubemap. Pre-admitted grant transferred once, including partial throwing copy; GL state restored; failed native allocation/observer release cleanup explicit. An allocation returned by native construction is retained locally until pixel-state restoration succeeds, so a throwing restoration cannot orphan it."
+    },
+    {
+      "sourcePath": "src/engine/babylon/imagery/imageryAtlas.ts",
+      "sourceBlob": "e57810db4841db0eb24fd30bd36bd633f151121a",
+      "sourceSha256": "3fa711399752a275dc287b557f76ebd9fa7050a28fd05194c0ca41c0155c9bed",
+      "destinations": [
+        {
+          "path": "src/babylon/textureDevice.ts",
+          "sha256": "1268facae7499a5f43d7aa96c0643472fa78f0e011f38f831f7fadf152e58dd2"
+        }
+      ],
+      "transformation": "Mixed imagery-atlas native backend seam only: generic raw construction/update ports over supplied scene and admitted transfers. No page/slot/table/layout/terrain imports. Same scene/caps/update metadata validated, GL state restored; cleanup unreturned allocation if completion tracking throws after create. Feature owns retained GPU/layout and mip bytes. An allocation returned by native construction is retained locally until pixel-state restoration succeeds, so a throwing restoration cannot orphan it. Source-only additive completion-aware admission/private RGBA8 batches and independent WebGL staging/job cleanup; original selected source and behavior cases retained. New causal/public fixtures are UNRUN; no native or artifact qualification."
+    },
+    {
+      "sourcePath": "src/sprites/atlas.ts",
+      "sourceBlob": "e5430af84957f49cf88e597467ade3449b5d9586",
+      "sourceSha256": "b009f94c376fffb55936b06c2392dff8667b162bf8e8f7e61221e73df169d2cc",
+      "destinations": [
+        {
+          "path": "src/babylon/canvasTextureDevice.ts",
+          "sha256": "8ea1b1802092c70a7461cb25263d69045ec3d218a5fd22caa74eccb11680341d"
+        }
+      ],
+      "transformation": "Extract only injected DynamicTexture/canvas backend construction/update seam; original marker pixel drawing/style stays engine. Renderer receives host canvas before allocation, borrowed scene/caps and transfer callback; protects disposal. Feature/host accounts retained canvas/GPU allocation. An allocation returned by native construction is retained locally until pixel-state restoration succeeds, so a throwing restoration cannot orphan it."
+    },
+    {
+      "sourcePath": "src/visualization/orbitCompass.ts",
+      "sourceBlob": "3287b5e580290b9f961798293761a1ef2cb258c8",
+      "sourceSha256": "076445268f654d7a14eb99059cf2e30f57dbf61e1446126e23d2f5bc04c932a7",
+      "destinations": [
+        {
+          "path": "src/babylon/canvasTextureDevice.ts",
+          "sha256": "8ea1b1802092c70a7461cb25263d69045ec3d218a5fd22caa74eccb11680341d"
+        }
+      ],
+      "transformation": "Extract only same generic DynamicTexture construction/update seam used by compass labels; compass geometry, pixel/text generation/settings stay engine. One supplied renderer, no private clock/broker. An allocation returned by native construction is retained locally until pixel-state restoration succeeds, so a throwing restoration cannot orphan it."
+    },
+    {
+      "sourcePath": "src/engine/babylon/loadMapTexture.ts",
+      "sourceBlob": "45bf45e6bd0a25a22ce3c445f45010e2d4f0521d",
+      "sourceSha256": "bdadde27628e6e535b4f2de3d8d9109a289462ffc400b734069439b894f19bac",
+      "destinations": [
+        {
+          "path": "src/babylon/pendingImageTexture.ts",
+          "sha256": "fddbd1721c14d499c93d64f767c5bba9b120decd8d53ee93662b9dc5b6df8aed"
+        }
+      ],
+      "transformation": "Preserve legacy synchronous pending Texture noMipmap=false/invertY=false/TRILINEAR/default gamma and updateURL behavior while injecting acquisition/body/object-URL callbacks. Encoded body retained until Babylon load/disposal. Hidden decode/native upload remain unbounded by this compatibility adapter; no shared broker accounting claim."
+    },
+    {
+      "sourcePath": "src/engine/babylon/loadMapTexture.test.ts",
+      "sourceBlob": "d89336ca7a43cfc7a6d0feb37f013ce3f39dc446",
+      "sourceSha256": "74ad2ffadc054902ddea4b118908325ee85affb37c8843c704aedc61cd6b27e3",
+      "destinations": [
+        {
+          "path": "tests/pendingImageTexture.test.ts",
+          "sha256": "2601036fd84ffe51231aa17042eacd72ed320f350c13b3c6c2038c453d2bc016"
+        }
+      ],
+      "transformation": "Current legacy pending decode/body/objectURL and late-disposal/error behavior adapted to injected body retention and realm ports; no hidden decode/GPU accounting qualification."
+    },
+    {
+      "sourcePath": "src/diagnostics/createMeshInspector.ts",
+      "sourceBlob": "1bf9cabbc869d366d6ec7d9517c70ce4135c4b18",
+      "sourceSha256": "56c5b9591ddb363aa651b4cbe747b9f3294d46563aef85337a473a4d8c7952e6",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/createMeshInspector.ts",
+          "sha256": "369bdd82799052075690bbe3d1169c7c6437993ec477fd0884b5be76fbfc8000"
+        }
+      ],
+      "transformation": "Preserve generic tree/selection/wireframe overlays, supplied scene and source readiness/disposal behavior. Readiness uses renderer own module; requestRender/whenReady injected. Structural handle targets public UI MeshInspectorPanelPort; no engine/app feature roots copied."
+    },
+    {
+      "sourcePath": "src/diagnostics/createMeshInspector.test.ts",
+      "sourceBlob": "89a71b12aba8a136e1029523ef0d65a94d3a8b68",
+      "sourceSha256": "66db711a08970dc3c3a6423e2281cacb3a1ee5370ee1835f24197a275252adca",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/createMeshInspector.test.ts",
+          "sha256": "dc0436e266c8cc0ed558a175ef5e2bbe84d4821574b0b49a9c9b8cb0306382e4"
+        }
+      ],
+      "transformation": "Retain original tree/selection/overlay/hidden readiness/stale disposal assertions, adapting imports to renderer-local extraction and supplied readiness ports. Prepared source only; assertions unrun."
+    },
+    {
+      "sourcePath": "src/diagnostics/createVectorDebugDrawing.ts",
+      "sourceBlob": "91c318e3491d4abf33d897c60f632e4639ccd438",
+      "sourceSha256": "d528a18cdd940314f16065fe9cbc81fd27d3c3f441951fd80b94389a63e089cd",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/createVectorDebugDrawing.ts",
+          "sha256": "58ab088127948dc469b46d662ede650013740083a51ffc06bc9ee988524989e0"
+        }
+      ],
+      "transformation": "Preserve arrow/arc geometry and ready-before-reveal label cadence with host monotonic seconds. Canvas DynamicTexture construction/update uses supplied renderer CanvasTextureDevicePorts; labels require the port before geometry allocation or settings mutation. No ambient canvas/clock/frame authority."
+    },
+    {
+      "sourcePath": "src/diagnostics/createVectorDebugDrawing.test.ts",
+      "sourceBlob": "6b581068471616436b8a8f935c38cc25dd8c6a08",
+      "sourceSha256": "e067e9a38773ea5ce87a558ff41d2261103e143788edf1a4641b81a447e300b6",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/createVectorDebugDrawing.test.ts",
+          "sha256": "23dd2e23b3cb67047190eb5dd8cf171b29a43df9a47a060d843a4c4165fe8f15"
+        }
+      ],
+      "transformation": "Retain original vector/arc settings/geometry/label cadence/readiness/disposal assertions, adapting public host canvas transfer and local imports. Prepared source only; assertions unrun."
+    },
+    {
+      "sourcePath": "src/diagnostics/drawing.ts",
+      "sourceBlob": "5769b6e4b68695e59423b9e80ae1206f918a2417",
+      "sourceSha256": "6e258d398a6c26642f8981ce2fc4e99fd44f416efaccd5518979b541621b87d5",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/index.ts",
+          "sha256": "7c37cfe8f90fce6ba62104d9e58f2eb0b5a010c290c1c1d3fc8294ee24ec5b2a"
+        }
+      ],
+      "transformation": "Optional generic diagnostics public barrel; no feature catalogue, engine/host imports or root pure-module dependency. Loading Babylon definitions creates no scene/device/frame queue."
+    },
+    {
+      "sourcePath": "src/perf/metrics.ts",
+      "sourceBlob": "81e544b97ce0a24e0139637a127c4ab4713bf27a",
+      "sourceSha256": "9ad9384da94649ef17a50dcec94a3c719356d3bdbf9938de9818b28d1025a367",
+      "destinations": [
+        {
+          "path": "src/babylon/diagnostics/metrics.ts",
+          "sha256": "635211c8b5022b625c728166750127cb6988822dbd7d0c78f839405c0eb08947"
+        }
+      ],
+      "transformation": "Preserve frame intervals/p95/active meshes/format and nullable drawCalls. Inject monotonic millisecond clock, memory bytes or null, and feature tile/culling readings; expose validated frameSampleCount policy with original 120 default. Original WGS84 culling implementation remains engine-owned. New causal metrics tests are authored, unrun."
+    },
+    {
+      "sourcePath": "src/diagnostics/index.test.ts",
+      "sourceBlob": "cde7b084074362a71935fc473909d7f3404c38e2",
+      "sourceSha256": "1c5ffe4d2c425d50b23018ba80a67cd7217f435b4fd45414b880a1256083020e",
+      "destinations": [
+        {
+          "path": "tests/diagnosticsImportBoundary.test.ts",
+          "sha256": "07b35de4a1755cb828994e4f6a2a53225e864e8413da484f827b015f398c0bfd"
+        }
+      ],
+      "transformation": "Retain original second positive dependency assertion against actual Renderer diagnostics/index.ts -> createMeshInspector.ts and Babylon import, preserving static source scanner with emitted .js -> .ts/.tsx resolution. Original first pure assertion is UI-owned. Full original test retained under source-only evidence; no fabricated heavy fixture, no checks executed."
     }
   ],
   "newFiles": [
-    "src/resourceLifecycle.ts",
+    ".attribution-release.json",
+    ".attribution.json",
+    ".gitignore",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "SOURCE_LINEAGE.json",
+    "eslint.config.mjs",
+    "package.json",
+    "tsconfig.build.json",
+    "tsconfig.json",
+    "vitest.config.ts",
+    ".github/workflows/attribution-check.yml",
+    "docs/host-contracts.md",
+    "fixtures/consumer.mjs",
+    "fixtures/diagnostics-extraction.json",
+    "fixtures/profiling-host.ts",
+    "fixtures/pure-consumer.ts",
+    "fixtures/raw-transfer-consumer.mjs",
+    "fixtures/tsconfig.json",
+    "fixtures/tsconfig.public.json",
+    "fixtures/upload-host.ts",
+    "fixtures/work-scheduler-consumer.mjs",
+    "fixtures/work-scheduler.ts",
+    "scripts/check-installed-artifact.mjs",
+    "scripts/copy-assets.mjs",
     "src/browser.ts",
     "src/index.ts",
+    "src/resourceLifecycle.ts",
+    "src/textureTransferTypes.ts",
     "src/babylon/index.ts",
-    "tests/resourceLifecycle.test.ts",
-    "tests/readiness.test.ts",
-    "tests/browser.test.ts",
-    "fixtures/consumer.mjs",
-    "fixtures/pure-consumer.ts",
+    "src/babylon/textureDisposal.ts",
+    "src/babylon/textureTransfers.ts",
+    "src/babylon/diagnostics/metrics.test.ts",
     "src/panel/index.ts",
-    "tests/rendererPreference.test.ts",
-    "tests/rendererLifecycle.test.ts",
+    "tests/browser.test.ts",
+    "tests/imageRegionDevice.test.ts",
+    "tests/imageTextureUploadWebGpu.test.ts",
     "tests/presentationProbeLifecycle.test.ts",
+    "tests/profilingLifecycle.test.ts",
+    "tests/rawTextureBatch.test.ts",
+    "tests/readiness.test.ts",
     "tests/rendererChoice.test.ts",
-    "scripts/check-installed-artifact.mjs"
+    "tests/rendererLifecycle.test.ts",
+    "tests/rendererPreference.test.ts",
+    "tests/resourceLifecycle.test.ts",
+    "tests/textureDevice.test.ts",
+    "tests/textureTransfers.test.ts"
   ],
   "pendingAcceptance": [
-    "shared pinned CI caller/policy/conformance",
-    "lineage-preserving history acceptance",
-    "remote admission",
-    "exact published artifact pin",
-    "current application and downstream consumer adoption"
+    "reserved current incremental source checks and full implementation suite once",
+    "new checked UI public MeshInspectorPanelPort/required refresh artifact",
+    "guarded exact installed renderer/UI/Babylon/compiler archive and declarations/CSS consumer",
+    "installed pinned shared CI conformance and complete intended branch/tag metadata audit",
+    "expanded clean filtered source lineage preserving human attribution",
+    "actual remote admission",
+    "exact current artifact pin and current Earth/downstream consumer adoption"
   ],
   "developmentContractPins": [
     {
       "package": "@foss-earth/ui",
       "version": "0.1.0",
-      "artifactSha256": "3482714b95671eaf2abc23aa9be10974f38dbead09c868bf8d78559028eb9a7c",
-      "acceptance": "private staging; public archive/type contracts consumed only; no remote admission"
+      "revision": null,
+      "artifactSha256": null,
+      "acceptance": "Current source MeshInspectorPanelPort and required shared-refresh bridge require a newly checked installed UI artifact; no current pin accepted.",
+      "priorEvidence": [
+        {
+          "artifactSha256": "3482714b95671eaf2abc23aa9be10974f38dbead09c868bf8d78559028eb9a7c",
+          "status": "stale previous developmentContractPins value; not a current acceptance pin"
+        },
+        {
+          "revision": "ee3d085f98005cfd9dd7f62066d29f193c8662ed",
+          "artifactSha256": "71bc6508b41a9f7bab8a73cf465474958fb0209a2a431f92277d55ac6c4825f7",
+          "status": "immutable earlier foundation installed evidence only"
+        }
+      ]
     }
-  ]
+  ],
+  "sourceTree": "c68d1fabd9fce19e255ea89c65502666d0f74a27",
+  "sourceOnlyIncrement": {
+    "preparedAt": "2026-10-09",
+    "checksExecuted": false,
+    "artifactBuilt": false,
+    "sourceHistoryChanged": false,
+    "scope": "renderer destination only; all 41 immutable original records retained under build/source-only/2026-10-09-renderer-diagnostics/original; previous source-only snapshots preserved",
+    "limits": [
+      "Frozen source553500e/archive2999ee90 evidence does not qualify current diagnostics/upload/profiling/startup repairs.",
+      "No new supported Node/browser/GPU range or native timing qualification.",
+      "Current UI artifact and host refresh adapter compatibility are unqualified.",
+      "Legacy pending Texture.updateURL hidden decode/GPU upload remain unbounded.",
+      "GL native sRGB storage unsupported and refused before allocation; GL1 NPOT has no mipmaps/bilinear, no legacy resize equivalence claimed.",
+      "drawCalls remains null; feature culling observations supplied, no invented partial geometry scanning.",
+      "Startup binding rollback releases only returned owned handles; provider throwing after hidden acquisition must roll back itself. Applied host settings/device context/resolution are not transactionally restored.",
+      "Shared CI source caller exists; installed conformance/full intended refs/remote admission pending.",
+      "Expanded selected source paths require primary lineage integration; SOURCE_LINEAGE.json untouched.",
+      "Required host published-source invalidation callback and expanded upload stats are source-only breaking additions; current 360 structural stats mock and canonical host composition need primary adaptation.",
+      "Throwing/rejected invalidation callback retained in latest stats; host fatal/reporting policy and actual texture ownership/generation checks required. No implicit global invalidation/device-loss inference.",
+      "Native queue/fence/canvas/binding lifecycle cases are mocked causal source, not browser/WebGPU/WebGL or completion semantics qualification.",
+      "Additive admission/batch source and 26 new causal cases remain UNRUN; no artifact/current app/native qualification.",
+      "Rejected or throwing GPU completion keeps input/upload/private-copy holds quarantined until actual observed device loss; ordinary dispose/cancel is not proof.",
+      "Private RGBA8 snapshots require a separate same-broker decoded/staging grant before allocation; no immutable-borrow/worker or detached cache-buffer capability.",
+      "Unproven WebGL canvas reset retains every decoded grant; even device loss alone is not decoded-canvas pixel retirement proof.",
+      "Engine/feature owns captured slot generations and table publication; only successful current settled result may publish, submitted slots cannot be reused before retired.",
+      "Host must observe nonrejecting settled and retired results and report retirement cleanup errors; structural legacy ports remain, rejected legacy GPU completion is now conservatively held.",
+      "Optional work scheduler source is UNRUN and unadopted. Primary must map hidden native wake ports to requestWork, visible commits to requestRender, and remove duplicate host pumps without a second frame/clock."
+    ],
+    "primarySchedulerStopIncrement": {
+      "preparedAt": "2026-10-09T08-00-20Z",
+      "checksExecuted": false,
+      "scope": [
+        "src/renderScheduler.ts",
+        "tests/renderScheduler.test.ts"
+      ]
+    },
+    "completionHandoffIncrement": {
+      "preparedAt": "2026-10-09T16:44:34.277941+00:00",
+      "scope": [
+        "README.md",
+        "docs/host-contracts.md",
+        "fixtures/tsconfig.public.json",
+        "fixtures/upload-host.ts",
+        "scripts/check-installed-artifact.mjs",
+        "src/babylon/imageTextureUpload.ts",
+        "src/babylon/imageTextureUploadWebGl.ts",
+        "src/babylon/imageUploadTypes.ts",
+        "src/babylon/index.ts",
+        "src/babylon/rendererLifecycle.ts",
+        "src/babylon/textureTransfers.ts",
+        "tests/diagnosticsImportBoundary.test.ts",
+        "tests/imageTextureUploadWebGl.test.ts",
+        "tests/imageTextureUploadWebGpu.test.ts",
+        "tests/rendererLifecycle.test.ts",
+        "tests/textureTransfers.test.ts",
+        "vitest.config.ts"
+      ],
+      "checksExecuted": false,
+      "artifactBuilt": false,
+      "historyChanged": false,
+      "preservedBeforeManifest": "build/source-only/2026-10-09T16-16-11Z-completion-handoffs/before-manifest.json",
+      "preservedBeforeManifestSha256": "367961418f823072cda20c97e3a669bd540559520148e1bf8c3d5942d525cf27",
+      "publicContract": {
+        "required": "ImageTextureUploaderOptions.invalidatePublishedSource(failure): void | Promise<void>",
+        "failure": "ImageUploadCompletionFailure {error: unknown,label: string,texture: UploadedImageTexture,invalidationError?: unknown}",
+        "stats": "publishedCompletionFailures + lastPublishedCompletionFailure; host callbacks retire generations synchronously before async cleanup"
+      },
+      "newPreparedCausalCases": 29,
+      "caseCounting": "Eight GPU + ten generated GL + four tracker + seven lifecycle cases; positive retained assertion separate. Static prepared cases only; zero executed.",
+      "retainedPositiveAssertion": "Original src/diagnostics/index.test.ts second assertion targets actual Renderer diagnostics source chain; UI owns first pure assertion.",
+      "testSelection": "tests/**/*.test.ts and src/**/*.test.ts plus Vitest default forceRerunTriggers and actual diagnostics source graph disk inputs; prepared only",
+      "externalSourceAdaptation": [
+        {
+          "path": "../360/tests/resources.test.ts",
+          "line": 13,
+          "required": "structural stats mock add publishedCompletionFailures:0,lastPublishedCompletionFailure:null",
+          "owner": "primary; unchanged here"
+        }
+      ],
+      "deferredReadOnlyRendererGaps": [],
+      "sourceExtensions": [
+        "2026-10-09T16:29:13.823881+00:00 mixed diagnostics positive assertion",
+        "2026-10-09T16:30:52.210874+00:00 actual source test inclusion/disk triggers",
+        "2026-10-09T16:32:59.213693+00:00 lifecycle exception handling",
+        "Existing admission/cancellation/job-state scope guards for injected callbacks",
+        "Parent explicit callback-admission/state guard request, within the existing upload repair scope; no separate native qualification"
+      ],
+      "lifecycleContract": "Live restore listener and frame request errors aggregate in order; removed/disposed listener suppression. Successful begin ends once; primary/end error aggregation preserves order; after only complete success.",
+      "leaseRecordedAt": "2026-10-09T16:13:22.784422+00:00",
+      "stableSourceOnly": true
+    },
+    "rawTextureBatchIncrement": {
+      "preparedAt": "2026-10-09T18:00:56.763929+00:00",
+      "leaseRecordedAt": "2026-10-09T17:35:53.400654+00:00",
+      "scope": [
+        "README.md",
+        "docs/host-contracts.md",
+        "extraction-provenance.json",
+        "fixtures/pure-consumer.ts",
+        "fixtures/raw-transfer-consumer.mjs",
+        "fixtures/upload-host.ts",
+        "scripts/check-installed-artifact.mjs",
+        "src/babylon/imageTextureUploadWebGl.ts",
+        "src/babylon/index.ts",
+        "src/babylon/textureDevice.ts",
+        "src/babylon/textureTransfers.ts",
+        "src/index.ts",
+        "src/textureTransferTypes.ts",
+        "tests/imageTextureUploadWebGl.test.ts",
+        "tests/rawTextureBatch.test.ts",
+        "tests/textureDevice.test.ts",
+        "tests/textureTransfers.test.ts"
+      ],
+      "checksExecuted": false,
+      "artifactBuilt": false,
+      "historyChanged": false,
+      "canonicalAppEdited": false,
+      "preservedBeforeManifest": "build/source-only/2026-10-09T17-36-47Z-raw-texture-batches/before-manifest.json",
+      "preservedBeforeManifestSha256": "8670f50f20107c1cfb9e257bb7ce94aff3b02c1d0fc47d1149fc9be6157bf765",
+      "preservedBeforeReceiptSha256": "e18590d9cc14ad67bf45027ba73f293484d222d93194b6ae8037e66a313fc737",
+      "newPreparedCausalCases": 26,
+      "caseCounting": "10 admission + 10 batch + 6 WebGL cleanup literal cases. All source-only/UNRUN.",
+      "purePublicTypes": [
+        "TextureTransferOutcome",
+        "TextureTransferRetirement",
+        "TextureTransferAdmission",
+        "TryAdmitTextureTransfer"
+      ],
+      "babylonAdditiveTypes": [
+        "CompletionTextureTransferTracker",
+        "RawTextureBatchRegion",
+        "RawTextureBatchRequest",
+        "PreparedRawTextureBatch",
+        "RawTextureBatchDevicePorts"
+      ],
+      "admission": "tryAdmit(bytes,label,retainInput:()=>()=>void): TextureTransferAdmission|null; active + settled/retired nonrejecting promises; submit(copy:(isActive:()=>boolean)=>void), cancel(reason?)",
+      "batch": "prepareRawTextureBatch({regions,label,retainInput:()=>()=>void,reserveCopy(bytes,label):UploadTicket}): PreparedRawTextureBatch|null; {bytes,active,settled,retired,submit(),cancel()}",
+      "settled": "uploaded | failed(error) | device-lost; no rejected completion can later publish uploaded",
+      "retired": "completed | device-lost, optional cleanupError; unknown native completion retains grants until observed loss",
+      "sourceOnlyPublicFixtures": [
+        "fixtures/upload-host.ts",
+        "fixtures/pure-consumer.ts",
+        "fixtures/raw-transfer-consumer.mjs"
+      ],
+      "installedHarness": "Existing guarded installed public harness now copies actual upload-host and raw-transfer fixture inside workspace; strict full public declaration closure. Prepared only.",
+      "unchangedContracts": [
+        "TextureTransferTracker structural immediate transfer/track/pump/deviceLost/dispose",
+        "TextureDevicePorts structural createRawTexture/void updateTextureData",
+        "package exports/scripts/dependencies/CI pins/lock/index/refs/selected source lineage"
+      ],
+      "stableSourceOnly": true
+    },
+    "workSchedulerIncrement": {
+      "preparedAt": "2026-10-09T18:13:55.933565+00:00",
+      "scope": [
+        "README.md",
+        "docs/host-contracts.md",
+        "extraction-provenance.json",
+        "fixtures/tsconfig.json",
+        "fixtures/work-scheduler.ts",
+        "fixtures/work-scheduler-consumer.mjs",
+        "scripts/check-installed-artifact.mjs",
+        "src/browser.ts",
+        "src/index.ts",
+        "src/renderScheduler.ts",
+        "tests/renderScheduler.test.ts"
+      ],
+      "checksExecuted": false,
+      "artifactBuilt": false,
+      "historyChanged": false,
+      "nativeQualified": false,
+      "publicContract": {
+        "type": "WorkRenderScheduler extends unchanged RenderScheduler",
+        "factory": "createRenderScheduler(options:RenderSchedulerOptions):WorkRenderScheduler",
+        "newMethod": "requestWork():void",
+        "options": [
+          "work?:(timeMs:number)=>void",
+          "shouldKeepWorking?:()=>boolean"
+        ],
+        "browser": "createBrowserRenderScheduler returns same additive WorkRenderScheduler"
+      },
+      "authority": "One existing asynchronous host requestFrame/cancelFrame queue and its timestamp. Hidden work never ticks/paints by itself; work publication may request one same-frame capped presentation; during-paint request retained for next.",
+      "noRefusedWorkPolling": "shouldKeepWorking only admitted runnable/in-flight work; existing broker/native callback wakes requestWork after capacity refusal",
+      "legacyPreserved": "RenderScheduler structural interface unchanged; existing positive scheduler prefix and pure/consumer fixture bytes retained, continuity ref count/predicate/trailing frame, cap jitter and unpause first presentation preserved",
+      "cleanup": "pause/stop withdraw pending identities/flags before cancel and all idle notifications; generation guards suppress stale/reentrant old phases; callback failures clean activity and propagate without implicit paint/retry",
+      "newPreparedCausalCases": 16,
+      "caseCounting": "16 added literal source registrations; ZERO executed",
+      "preservedBeforeManifest": "build/source-only/2026-10-09T18-07-17Z-work-scheduler/before-manifest.json",
+      "preservedBeforeManifestSha256": "319499f7a87c722988e49a827375df55b9eb6f76ee4b1ec3250d17c55fe233eb",
+      "additionalBeforeManifest": "build/source-only/2026-10-09T18-07-17Z-work-scheduler/additional-before-manifest.json",
+      "additionalBeforeManifestSha256": "cf146d71f6824305ba461a636dbd5847a3f35224261aa1cd959eca10259dea36",
+      "priorReceiptSha256": "66b46922d95816ef317eb9e2722f5854619cf6310a6849fff8eadf22898f300f",
+      "sourceOnlyFixtures": [
+        "fixtures/work-scheduler.ts",
+        "fixtures/work-scheduler-consumer.mjs"
+      ],
+      "immutableEarlierBatchSource": {
+        "src/babylon/textureTransfers.ts": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
+        "src/babylon/textureDevice.ts": "458357e58c29e8725b3fc26ddbaea99f76a4c0b09eda037f018b8a28d830a44b",
+        "src/babylon/imageTextureUploadWebGl.ts": "1ed88b7d1a10fc304fdd59a07526e54ab4e4d4370c79a460afb040cbf922d381",
+        "src/textureTransferTypes.ts": "a2c12a102d36be033e80235e29cb5df88bf876e7217437104cb57ccec037e4ee",
+        "fixtures/raw-transfer-consumer.mjs": "19d8f854e7b3ed48f75a6dd23349bbbc2269ca0a0b71f04cc376c178990ab9b1",
+        "fixtures/pure-consumer.ts": "8915913ed44b4074bd11df5481108ae981b4ea39b502e09562abfa06c0e8a090",
+        "fixtures/consumer.mjs": "493ec46c646787a37bb18bccd9ecf1740e8c45815ff7f65f0e07f8d07c6a46b3"
+      },
+      "stableSourceOnly": true
+    }
+  },
+  "sharedCi": {
+    "trustedRelease": {
+      "schemaVersion": 1,
+      "package": "@foss-earth/ci",
+      "version": "0.1.0",
+      "revision": "9e046dd482e0229dc7c7b2d71b079d5905664656",
+      "artifactSha256": "450ede699f55f9b9c78146eadb73de7c6297e56553e7d7f9e5b164786a7beb24",
+      "sizeBytes": 55587,
+      "policySha256": "9ca88bf5861685e22e65e5f39fa65b05faaf9c218875fccbecce1b9f2dca5bd3",
+      "files": {
+        "bin/attribution.mjs": "a9a49c9d0f0592cabe132c08f1c34e79bad0097bb97a01b57f3ff4b529ccd3d7",
+        "bin/candidate.mjs": "b067efed3f64c9e2c99e6ef8600abb1136e576cb56988946f259f12d3c8c3670",
+        "bin/conformance.mjs": "a62d7a29ddd7f19eba9f5d71fefe5eec49c3fc5000ea6ffd5a9356a2663ffe1a",
+        "bin/hosted.mjs": "f9dae9c154996149b3edd8be04f632a3ad05d0dc76f6a97544fc0f5e037b93ff",
+        "bin/scaffold.mjs": "cc31c34c848f3ac88f7d23734a98a9f72b139d7ecf5c3c0f4a178bd1b2b0c3b2",
+        "fixtures/matrix-v1.json": "66c472b358ad4e2a2d9cd1d1c2402e2831dcef91904b509a39bc9aca0cfb41a3",
+        "policy/attribution-v1.json": "9ca88bf5861685e22e65e5f39fa65b05faaf9c218875fccbecce1b9f2dca5bd3",
+        "src/audit.mjs": "d085a9a6de1aaf7283c864962d6d82fa11543c6011cc77e07a09b572d4411f2b",
+        "src/candidate.mjs": "8a1224dae838d43aae4c9ad32369420a1b803d80d6c6006e193aac762cfd0573",
+        "src/conformance.mjs": "4ffcb74504d58d039ca8599765b8a239c089c905b14a2758b691dc99e4c1266a",
+        "src/controller.mjs": "ce548c40f8e968780677f2ecf82f7ae373428bc0aefa0b57e0b31c4b7bead365",
+        "src/fixtures.mjs": "64e016196d0330031b6dd609a93ecd6f136856a4c9ab8421d5d3aeff13db6889",
+        "src/git.mjs": "0a01fb07aded828787dd42706022226a442627a3e5ef446d469bff466db1a4e1",
+        "src/github-checks.mjs": "1a1af0fd6293ccb8eecd155addfcd1079e486001179cff68d86f3d425876cab9",
+        "src/hosted-conformance.mjs": "9a36a41a6b61a1feb133896f0760b6a385feafc1dac5a1105fc85580882d3266",
+        "src/hosted-subject.mjs": "60e095b1a76277e113347550e5208d6cc2e6d99eb498aee6ddd355eca6465cc3",
+        "src/policy.mjs": "d698c4b8ae6404d6595e836c3ecba4c10cc87453309d6e93b14f88d4f882a18d",
+        "src/templates.mjs": "c4b019226f58f3339ece8b545137226a3cf9a46dde7895f36d6cec3c0c63a1ef"
+      }
+    },
+    "sourceCallerSha256": "63349507da9d004752bb0e43c681089dfd9fd6c26bf8047738cb19025f15135e",
+    "configurationSha256": "e4493f3031a5051398339cf9649a8e18efb8ece96f512761d8d145daf8347f7a",
+    "descriptorSha256": "c5324ea9476d99afbc5f63e9d5a15d597dd7ee27546499c392046b55fc361131",
+    "installedConformance": null,
+    "completeIntendedRefAudit": null,
+    "remoteAdmission": null,
+    "requiredContext": "attribution / Attribution policy",
+    "docsOnlySkip": false
+  },
+  "authoredFiles": [
+    {
+      "path": ".attribution-release.json",
+      "sha256": "c5324ea9476d99afbc5f63e9d5a15d597dd7ee27546499c392046b55fc361131",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": ".attribution.json",
+      "sha256": "e4493f3031a5051398339cf9649a8e18efb8ece96f512761d8d145daf8347f7a",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": ".github/workflows/attribution-check.yml",
+      "sha256": "63349507da9d004752bb0e43c681089dfd9fd6c26bf8047738cb19025f15135e",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "a2714423ee917efb6b75ff5503acab5266313c7cf5168abc70c9c68944881a3c",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "b9af6009454b10fb1a7ad8f669721ffd35255a65a70db788e08d1720f0c7b7ec",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "sha256": "75d8f018d6f263b7e6776ce239e2d7bde6732b1be39ecc0e1c96544b94f806b2",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "README.md",
+      "sha256": "af05fb940c3b06139bb932252add50f33fa5fd5627796d6f7c272862cfa26040",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "SOURCE_LINEAGE.json",
+      "sha256": "6b53f9b39199c5ce5a48039a79efd449621334f8c3ca6640a039e869cd7372bd",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "docs/host-contracts.md",
+      "sha256": "d1ccca8e05a56509be05b48589c2f46810b6e9fdc56deafc255e5a2f067a7abd",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "eslint.config.mjs",
+      "sha256": "ada5faa80a90dcde13e9516a49dc77694f56d3fda6f47932b59338eb0401f5a4",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/consumer.mjs",
+      "sha256": "493ec46c646787a37bb18bccd9ecf1740e8c45815ff7f65f0e07f8d07c6a46b3",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/diagnostics-extraction.json",
+      "sha256": "19bfa0e989571188587241fd2dfdf41972a408fafcc02a8dfddab102dcf5a4b5",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/profiling-host.ts",
+      "sha256": "5f0dddfeba0ea09735c1c78d3a6c1b7e68bbfe1aac27e9320aeed3e9fe44ecab",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/pure-consumer.ts",
+      "sha256": "8915913ed44b4074bd11df5481108ae981b4ea39b502e09562abfa06c0e8a090",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/raw-transfer-consumer.mjs",
+      "sha256": "19d8f854e7b3ed48f75a6dd23349bbbc2269ca0a0b71f04cc376c178990ab9b1",
+      "status": "authored additive completion contract/causal fixture; current source UNRUN"
+    },
+    {
+      "path": "fixtures/tsconfig.json",
+      "sha256": "54200dd00b944ae96e8466bfdb1827558427af9cfc4c5895dea665dd9869f912",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/tsconfig.public.json",
+      "sha256": "5ff9a401d25c2206a8f0a8fa507d73e482e0bf7b4a4e5be3a1be7e6154dac3de",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/upload-host.ts",
+      "sha256": "72034bf144ab7b025059c3f3951d100eeaa34cede7dcef576b6fa154af8ca1b9",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "fixtures/work-scheduler-consumer.mjs",
+      "sha256": "59365c6041a4c678cbbf446bd7ec3754c85bf6efdd80b8a39ea6dc3f8683d138",
+      "status": "authored source-only actual public work scheduler fixture; UNRUN"
+    },
+    {
+      "path": "fixtures/work-scheduler.ts",
+      "sha256": "560338552fe5751ccaebb38e4f3917220534ead645c0cb32ba43d2ced733fdb1",
+      "status": "authored source-only actual public work scheduler fixture; UNRUN"
+    },
+    {
+      "path": "package.json",
+      "sha256": "3d90ae9917f3376c9906a191536dc667cdf5d1941f7587b4557fa31278863454",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "scripts/check-installed-artifact.mjs",
+      "sha256": "d0eb17bd331f9a2a3d6ec8489de52283ed7b56998d355ad7005ffe8453d593f8",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "scripts/copy-assets.mjs",
+      "sha256": "2e88e6267fd55612ae8e91aecd3ff4f240e62ad6f8a495b2514df14bef191120",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/babylon/diagnostics/metrics.test.ts",
+      "sha256": "9c32e7fc01190af5ec1b753a5b9dafd1fe2759ce219e396797c44c0e3ab4f455",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/babylon/index.ts",
+      "sha256": "bd10d92b3a9058d23360bfc9b551b9f3357b3aad06eafb50a72cb32147a9018a",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/babylon/textureDisposal.ts",
+      "sha256": "39e69858eb2dd3e45d7138a47315493c458735f89e9336b26abc3d3c2be4bd33",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/babylon/textureTransfers.ts",
+      "sha256": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/browser.ts",
+      "sha256": "f822b084b34c3465a402c2fa01ddb3237c38864dc2e3c0fa5afa9f68d5f86dbd",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/index.ts",
+      "sha256": "44077aae08a321709320fcb54af919030ff7fd7265ec35b234730c9b205594ea",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/panel/index.ts",
+      "sha256": "e5d22e47c01ad12a58bcc0a5c7e3c41d4d39777b883afb01c9b8d1a66db24e73",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/resourceLifecycle.ts",
+      "sha256": "0992f3ea83f4db970ddae328db88cd80454d58667ba98054a67759a16a224852",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "src/textureTransferTypes.ts",
+      "sha256": "a2c12a102d36be033e80235e29cb5df88bf876e7217437104cb57ccec037e4ee",
+      "status": "authored additive completion contract/causal fixture; current source UNRUN"
+    },
+    {
+      "path": "tests/browser.test.ts",
+      "sha256": "5bb231951e0b4a4d2a9df30e7bad3ae60500bf0046f4a184cdf3e8b45cdc28ca",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/imageRegionDevice.test.ts",
+      "sha256": "8904c92ccdf61beac39d37511dfc2640ed9ff61de3f72808b45008ec2126097e",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/imageTextureUploadWebGpu.test.ts",
+      "sha256": "11935bf9df56c2f9e944c43e65683613e8d5e38148827779cea276908fd9af2f",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/presentationProbeLifecycle.test.ts",
+      "sha256": "c920ea110929db21a84ab87f7cdf1fde8db6753a5f88fff3410b1fd1f35994df",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/profilingLifecycle.test.ts",
+      "sha256": "82c401f6037d56801b22d578b355d921be74b4352fd0f14fa4012a2ca94c551f",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/rawTextureBatch.test.ts",
+      "sha256": "3130c21502ff346207f5724ffd10b7899bdaeb8a7f23f55548614a5d2d70d069",
+      "status": "authored additive completion contract/causal fixture; current source UNRUN"
+    },
+    {
+      "path": "tests/readiness.test.ts",
+      "sha256": "a0d43f3af1a13971dbfbc7f6d16d456f00fde3394ccbd8162ebb8e01b69853e3",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/rendererChoice.test.ts",
+      "sha256": "d0358d2bfbcc3c39fe20cd5672541839b7de1b0c7acbc6b981441f333b57c2e0",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/rendererLifecycle.test.ts",
+      "sha256": "aa24d336a46a0b86ba947340c87f3680b4a7db6054ff4d07a429bea8c5d00be2",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/rendererPreference.test.ts",
+      "sha256": "f884a8fee8ff2a3d27eedb1c666a8356b6f9380b99425f554986daa8b42eac53",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/resourceLifecycle.test.ts",
+      "sha256": "4ff5042e7c2022c2b7db38bca1b81028b35b7ed8ba6ead6308371ea5997a9637",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/textureDevice.test.ts",
+      "sha256": "a101e519359e3bf561d8232364f0ca08e292396dfc5f2bc98671fe340e6b403d",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tests/textureTransfers.test.ts",
+      "sha256": "c2f5c4a26ce699073cd2153bebeec6ff779a9b6269e05a6f936ac81dd5b87f88",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tsconfig.build.json",
+      "sha256": "77e551c61320681cab3b093ada73a16528495b2f4911eb2f2c946b873d5a8f3c",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "442873bb4757811049b57c1bbf0b4a9f4b19fe845fe712db94cf9e79cbd016e9",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    },
+    {
+      "path": "vitest.config.ts",
+      "sha256": "65021e2e09c6ce36958e5bc7f0b9d89a3f97c05ac9a05e953cb5bf9e84a82040",
+      "status": "authored extraction/fixture/configuration source; unqualified current increment"
+    }
+  ],
+  "primarySourceSnapshot": {
+    "createdAtUtc": "2026-10-09T18-56-18Z",
+    "status": "source-only; no qualification or artifact seal",
+    "authoredFiles": [
+      {
+        "path": ".attribution-release.json",
+        "sha256": "c5324ea9476d99afbc5f63e9d5a15d597dd7ee27546499c392046b55fc361131",
+        "bytes": 2045,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": ".attribution.json",
+        "sha256": "e4493f3031a5051398339cf9649a8e18efb8ece96f512761d8d145daf8347f7a",
+        "bytes": 491,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": ".gitignore",
+        "sha256": "a2714423ee917efb6b75ff5503acab5266313c7cf5168abc70c9c68944881a3c",
+        "bytes": 27,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "AGENTS.md",
+        "sha256": "b9af6009454b10fb1a7ad8f669721ffd35255a65a70db788e08d1720f0c7b7ec",
+        "bytes": 1257,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "CONTRIBUTING.md",
+        "sha256": "75d8f018d6f263b7e6776ce239e2d7bde6732b1be39ecc0e1c96544b94f806b2",
+        "bytes": 619,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "README.md",
+        "sha256": "af05fb940c3b06139bb932252add50f33fa5fd5627796d6f7c272862cfa26040",
+        "bytes": 33353,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "SOURCE_LINEAGE.json",
+        "sha256": "6b53f9b39199c5ce5a48039a79efd449621334f8c3ca6640a039e869cd7372bd",
+        "bytes": 16876,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "eslint.config.mjs",
+        "sha256": "ada5faa80a90dcde13e9516a49dc77694f56d3fda6f47932b59338eb0401f5a4",
+        "bytes": 172,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "package.json",
+        "sha256": "3d90ae9917f3376c9906a191536dc667cdf5d1941f7587b4557fa31278863454",
+        "bytes": 3040,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tsconfig.build.json",
+        "sha256": "77e551c61320681cab3b093ada73a16528495b2f4911eb2f2c946b873d5a8f3c",
+        "bytes": 414,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tsconfig.json",
+        "sha256": "442873bb4757811049b57c1bbf0b4a9f4b19fe845fe712db94cf9e79cbd016e9",
+        "bytes": 184,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "vitest.config.ts",
+        "sha256": "65021e2e09c6ce36958e5bc7f0b9d89a3f97c05ac9a05e953cb5bf9e84a82040",
+        "bytes": 502,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": ".github/workflows/attribution-check.yml",
+        "sha256": "63349507da9d004752bb0e43c681089dfd9fd6c26bf8047738cb19025f15135e",
+        "bytes": 406,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "docs/host-contracts.md",
+        "sha256": "d1ccca8e05a56509be05b48589c2f46810b6e9fdc56deafc255e5a2f067a7abd",
+        "bytes": 24387,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/consumer.mjs",
+        "sha256": "493ec46c646787a37bb18bccd9ecf1740e8c45815ff7f65f0e07f8d07c6a46b3",
+        "bytes": 1417,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/diagnostics-extraction.json",
+        "sha256": "19bfa0e989571188587241fd2dfdf41972a408fafcc02a8dfddab102dcf5a4b5",
+        "bytes": 5890,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/profiling-host.ts",
+        "sha256": "5f0dddfeba0ea09735c1c78d3a6c1b7e68bbfe1aac27e9320aeed3e9fe44ecab",
+        "bytes": 1782,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/pure-consumer.ts",
+        "sha256": "8915913ed44b4074bd11df5481108ae981b4ea39b502e09562abfa06c0e8a090",
+        "bytes": 1495,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/raw-transfer-consumer.mjs",
+        "sha256": "19d8f854e7b3ed48f75a6dd23349bbbc2269ca0a0b71f04cc376c178990ab9b1",
+        "bytes": 3136,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/tsconfig.json",
+        "sha256": "54200dd00b944ae96e8466bfdb1827558427af9cfc4c5895dea665dd9869f912",
+        "bytes": 401,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/tsconfig.public.json",
+        "sha256": "5ff9a401d25c2206a8f0a8fa507d73e482e0bf7b4a4e5be3a1be7e6154dac3de",
+        "bytes": 375,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/upload-host.ts",
+        "sha256": "72034bf144ab7b025059c3f3951d100eeaa34cede7dcef576b6fa154af8ca1b9",
+        "bytes": 2594,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/work-scheduler-consumer.mjs",
+        "sha256": "59365c6041a4c678cbbf446bd7ec3754c85bf6efdd80b8a39ea6dc3f8683d138",
+        "bytes": 1541,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "fixtures/work-scheduler.ts",
+        "sha256": "560338552fe5751ccaebb38e4f3917220534ead645c0cb32ba43d2ced733fdb1",
+        "bytes": 1350,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "scripts/check-installed-artifact.mjs",
+        "sha256": "d0eb17bd331f9a2a3d6ec8489de52283ed7b56998d355ad7005ffe8453d593f8",
+        "bytes": 17793,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "scripts/copy-assets.mjs",
+        "sha256": "2e88e6267fd55612ae8e91aecd3ff4f240e62ad6f8a495b2514df14bef191120",
+        "bytes": 266,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/browser.ts",
+        "sha256": "f822b084b34c3465a402c2fa01ddb3237c38864dc2e3c0fa5afa9f68d5f86dbd",
+        "bytes": 1386,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/index.ts",
+        "sha256": "44077aae08a321709320fcb54af919030ff7fd7265ec35b234730c9b205594ea",
+        "bytes": 1122,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/resourceLifecycle.ts",
+        "sha256": "0992f3ea83f4db970ddae328db88cd80454d58667ba98054a67759a16a224852",
+        "bytes": 6262,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/textureTransferTypes.ts",
+        "sha256": "a2c12a102d36be033e80235e29cb5df88bf876e7217437104cb57ccec037e4ee",
+        "bytes": 1235,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/babylon/index.ts",
+        "sha256": "bd10d92b3a9058d23360bfc9b551b9f3357b3aad06eafb50a72cb32147a9018a",
+        "bytes": 3163,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/babylon/textureDisposal.ts",
+        "sha256": "39e69858eb2dd3e45d7138a47315493c458735f89e9336b26abc3d3c2be4bd33",
+        "bytes": 668,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/babylon/textureTransfers.ts",
+        "sha256": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
+        "bytes": 11487,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/babylon/diagnostics/metrics.test.ts",
+        "sha256": "9c32e7fc01190af5ec1b753a5b9dafd1fe2759ce219e396797c44c0e3ab4f455",
+        "bytes": 2152,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "src/panel/index.ts",
+        "sha256": "e5d22e47c01ad12a58bcc0a5c7e3c41d4d39777b883afb01c9b8d1a66db24e73",
+        "bytes": 322,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/browser.test.ts",
+        "sha256": "5bb231951e0b4a4d2a9df30e7bad3ae60500bf0046f4a184cdf3e8b45cdc28ca",
+        "bytes": 792,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/imageRegionDevice.test.ts",
+        "sha256": "8904c92ccdf61beac39d37511dfc2640ed9ff61de3f72808b45008ec2126097e",
+        "bytes": 5001,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/imageTextureUploadWebGpu.test.ts",
+        "sha256": "11935bf9df56c2f9e944c43e65683613e8d5e38148827779cea276908fd9af2f",
+        "bytes": 18651,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/presentationProbeLifecycle.test.ts",
+        "sha256": "c920ea110929db21a84ab87f7cdf1fde8db6753a5f88fff3410b1fd1f35994df",
+        "bytes": 2677,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/profilingLifecycle.test.ts",
+        "sha256": "82c401f6037d56801b22d578b355d921be74b4352fd0f14fa4012a2ca94c551f",
+        "bytes": 3870,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/rawTextureBatch.test.ts",
+        "sha256": "3130c21502ff346207f5724ffd10b7899bdaeb8a7f23f55548614a5d2d70d069",
+        "bytes": 8573,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/readiness.test.ts",
+        "sha256": "a0d43f3af1a13971dbfbc7f6d16d456f00fde3394ccbd8162ebb8e01b69853e3",
+        "bytes": 1710,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/rendererChoice.test.ts",
+        "sha256": "d0358d2bfbcc3c39fe20cd5672541839b7de1b0c7acbc6b981441f333b57c2e0",
+        "bytes": 865,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/rendererLifecycle.test.ts",
+        "sha256": "aa24d336a46a0b86ba947340c87f3680b4a7db6054ff4d07a429bea8c5d00be2",
+        "bytes": 19729,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/rendererPreference.test.ts",
+        "sha256": "f884a8fee8ff2a3d27eedb1c666a8356b6f9380b99425f554986daa8b42eac53",
+        "bytes": 1446,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/resourceLifecycle.test.ts",
+        "sha256": "4ff5042e7c2022c2b7db38bca1b81028b35b7ed8ba6ead6308371ea5997a9637",
+        "bytes": 6082,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/textureDevice.test.ts",
+        "sha256": "a101e519359e3bf561d8232364f0ca08e292396dfc5f2bc98671fe340e6b403d",
+        "bytes": 10838,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      },
+      {
+        "path": "tests/textureTransfers.test.ts",
+        "sha256": "c2f5c4a26ce699073cd2153bebeec6ff779a9b6269e05a6f936ac81dd5b87f88",
+        "bytes": 14294,
+        "status": "authored source/scaffold/adapter/fixture; UNRUN"
+      }
+    ],
+    "checksExecuted": [],
+    "sourceRemoved": false,
+    "canonicalAppConsumerAdoption": null,
+    "acceptedArtifacts": []
+  }
 }

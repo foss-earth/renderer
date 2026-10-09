@@ -176,18 +176,19 @@ export function createSceneUpdates(options: SceneUpdatesOptions): SceneUpdates {
     queueMicrotask(judge);
   };
   const onMeshAdded = (mesh: AbstractMesh): void => {
+    if (disposed) return;
     added.push(mesh);
     queueJudge();
   };
   // Babylon takes a mesh out of the scene part way through disposing it, and
   // reports it at once: whether a frame is being prepared is known now.
   const onMeshRemoved = (mesh: AbstractMesh): void => {
-    if (isPreparingFrame()) return;
+    if (disposed || isPreparingFrame()) return;
     removed.push(mesh);
     queueJudge();
   };
   const onLightChanged = (light: Light): void => {
-    if (isPreparingFrame()) return;
+    if (disposed || isPreparingFrame()) return;
     if (light.isEnabled()) requestRender();
   };
   const unsubscribe: Array<() => void> = [];
@@ -195,16 +196,34 @@ export function createSceneUpdates(options: SceneUpdatesOptions): SceneUpdates {
     const observer = observable.add(callback);
     unsubscribe.push(() => observable.remove(observer));
   };
-  watch(scene.onNewMeshAddedObservable, onMeshAdded);
-  watch(scene.onMeshRemovedObservable, onMeshRemoved);
-  watch(scene.onNewLightAddedObservable, onLightChanged);
-  watch(scene.onLightRemovedObservable, onLightChanged);
-
   let cancelWait: (() => void) | null = null;
   const cancelSettle = (): void => {
-    cancelWait?.();
+    const cancel = cancelWait;
     cancelWait = null;
+    cancel?.();
   };
+  const dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+    const failures: unknown[] = [];
+    added = [];
+    removed = [];
+    for (const stop of [cancelSettle, ...unsubscribe.splice(0)]) {
+      try { stop(); } catch (error) { failures.push(error); }
+    }
+    if (failures.length) throw new AggregateError(failures, "Scene update cleanup failed.");
+  };
+  try {
+    watch(scene.onNewMeshAddedObservable, onMeshAdded);
+    watch(scene.onMeshRemovedObservable, onMeshRemoved);
+    watch(scene.onNewLightAddedObservable, onLightChanged);
+    watch(scene.onLightRemovedObservable, onLightChanged);
+  } catch (error) {
+    try { dispose(); } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "Scene update startup and cleanup failed.");
+    }
+    throw error;
+  }
 
   return {
     settle(): void {
@@ -232,13 +251,6 @@ export function createSceneUpdates(options: SceneUpdatesOptions): SceneUpdates {
       }, timers, options.readinessPolicy);
     },
     cancelSettle,
-    dispose(): void {
-      if (disposed) return;
-      disposed = true;
-      cancelSettle();
-      added = [];
-      removed = [];
-      for (const stop of unsubscribe) stop();
-    },
+    dispose,
   };
 }

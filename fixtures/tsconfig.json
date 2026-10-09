@@ -1,7 +1,20 @@
 {
   "compilerOptions": {
-    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
-    "lib": ["ES2022"], "types": [], "strict": true, "skipLibCheck": false, "noEmit": true
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2022"
+    ],
+    "types": [],
+    "strict": true,
+    "skipLibCheck": false,
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/pure-consumer.tsbuildinfo"
   },
-  "include": ["pure-consumer.ts"]
+  "include": [
+    "pure-consumer.ts",
+    "work-scheduler.ts"
+  ]
 }

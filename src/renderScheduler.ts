@@ -2,136 +2,183 @@
 export type RenderFrameCallback = (time: number) => void;
 
 export interface RenderSchedulerOptions {
-  /** Per-frame work. Called inside requestAnimationFrame. */
+  /** Present one changed scene. Called inside the host animation frame. */
   tick(): void;
-  /**
-   * Optional predicate. When it returns true at the end of a tick the
-   * scheduler keeps rendering on the next frame (e.g. inertial decay).
-   */
+  /** Prepare hidden work using that same frame timestamp, without painting. */
+  work?: (timeMs: number) => void;
+  /** Only admitted runnable/in-flight work; capacity refusal waits for a wake. */
+  shouldKeepWorking?: () => boolean;
+  /** Keep presenting while the host's motion/inertia needs changed frames. */
   shouldKeepRendering?: () => boolean;
-  /**
-   * The least time between two ticks, ms, read each frame: `renderer.frameRateCap`.
-   * A frame due sooner waits for the next one. 0 or omitted: every frame.
-   */
+  /** Presentation interval in ms; work still runs on rate-capped host frames. */
   minFrameIntervalMs?: () => number;
-  /** The host supplies its single animation-frame authority. */
+  /** The host supplies its single asynchronous animation-frame authority. */
   requestFrame: (cb: RenderFrameCallback) => number;
   cancelFrame: (handle: number) => void;
 }
 
+/** Legacy structural ports are unchanged; existing host mocks need no new member. */
 export interface RenderScheduler {
-  /** Schedule a single frame on the next rAF. No-op if one is already pending. */
   requestRender(): void;
-  /** Keep rendering every frame until the matching endContinuous() call. */
   beginContinuous(): void;
-  /** Release one continuous-render reference. */
   endContinuous(): void;
-  /** True while continuous mode is held by at least one caller. */
   isContinuous(): boolean;
-  /** Pause/unpause the scheduler (e.g. on document.visibilitychange). */
   setPaused(paused: boolean): void;
-  /** Cancel any pending frame and stop the scheduler permanently. */
   stop(): void;
-  /** True when a frame is pending or continuous mode is held. */
   isActive(): boolean;
-  /**
-   * Subscribe to idle-state transitions. Fires synchronously whenever the
-   * scheduler flips between idle (no pending frame, no continuous holders)
-   * and active. Returns an unsubscribe function.
-   */
   onActiveChange(listener: (active: boolean) => void): () => void;
 }
+export interface WorkRenderScheduler extends RenderScheduler {
+  /** Schedule hidden preparation; does not request scene presentation. */
+  requestWork(): void;
+}
 
-export function createRenderScheduler(options: RenderSchedulerOptions): RenderScheduler {
+export function createRenderScheduler(options: RenderSchedulerOptions): WorkRenderScheduler {
   const { requestFrame, cancelFrame } = options;
-
-  let handle = 0;
+  type Frame = { handle: number; generation: number; delivered: boolean };
+  let pending: Frame | null = null;
+  let registering = false;
+  let inFrame = false;
   let continuousRefs = 0;
   let paused = false;
   let stopped = false;
   let renderRequested = false;
+  let workRequested = false;
   let active = false;
-  let lastTickAt: number | null = null;
+  let lifecycleGeneration = 0;
+  let activityGeneration = 0;
+  let lastPresentedAt: number | null = null;
   const activeListeners = new Set<(active: boolean) => void>();
+  const throwFailures = (failures: unknown[], message: string): void => {
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) throw new AggregateError(failures, message);
+  };
 
   function setActive(next: boolean): void {
     if (active === next) return;
     active = next;
-    for (const listener of activeListeners) listener(active);
-  }
-
-  function schedule(): void {
-    if (stopped || paused || handle !== 0) return;
-    handle = requestFrame(tick);
-    setActive(true);
-  }
-
-  function tick(time: number): void {
-    handle = 0;
-    if (stopped || paused) return;
-    const now = time;
-    const interval = options.minFrameIntervalMs?.() ?? 0;
-    // A millisecond early still counts: display frames arrive with jitter.
-    if (interval > 0 && lastTickAt !== null && now - lastTickAt < interval - 1) {
-      handle = requestFrame(tick);
-      return;
+    const generation = ++activityGeneration;
+    const failures: unknown[] = [];
+    for (const listener of [...activeListeners]) {
+      if (generation !== activityGeneration) break;
+      if (!activeListeners.has(listener)) continue;
+      try { listener(next); } catch (error) { failures.push(error); }
     }
-    lastTickAt = now;
-    renderRequested = false;
-    options.tick();
-    const keep =
-      continuousRefs > 0 ||
-      (options.shouldKeepRendering ? options.shouldKeepRendering() : false) ||
-      renderRequested;
-    if (keep) schedule();
-    else setActive(false);
+    throwFailures(failures, "Scheduler activity notification failed.");
+  }
+  function live(generation: number): boolean {
+    return !stopped && !paused && lifecycleGeneration === generation;
+  }
+  function schedule(): void {
+    if (stopped || paused || pending || inFrame || registering) return;
+    const frame: Frame = { handle: 0, generation: lifecycleGeneration, delivered: false };
+    pending = frame; registering = true;
+    const failures: unknown[] = [];
+    try { frame.handle = requestFrame(time => runFrame(frame, time)); }
+    catch (error) { if (pending === frame) pending = null; failures.push(error); }
+    finally { registering = false; }
+    if (frame.handle !== 0 && !frame.delivered && (pending !== frame || !live(frame.generation))) {
+      // A supplied registration callback may reenter pause/stop before returning.
+      try { cancelFrame(frame.handle); } catch (error) { failures.push(error); }
+    }
+    if (pending === frame && live(frame.generation)) {
+      try { setActive(true); } catch (error) { failures.push(error); }
+    } else if (!pending && !inFrame && !stopped && !paused && !frame.delivered) {
+      try { setActive(false); } catch (error) { failures.push(error); }
+    }
+    throwFailures(failures, "Scheduler frame registration failed.");
+  }
+  function runFrame(frame: Frame, time: number): void {
+    frame.delivered = true;
+    if (pending !== frame || !live(frame.generation)) return;
+    pending = null; inFrame = true;
+    const generation = lifecycleGeneration;
+    const failures: unknown[] = [];
+    const wantsWork = workRequested || renderRequested || continuousRefs > 0;
+    workRequested = false;
+    try {
+      if (wantsWork && options.work) {
+        try { options.work(time); } catch (error) { failures.push(error); }
+        if (!failures.length && live(generation) && options.shouldKeepWorking) {
+          try { if (options.shouldKeepWorking()) workRequested = true; } catch (error) { failures.push(error); }
+        }
+      }
+      if (!failures.length && live(generation) && (renderRequested || continuousRefs > 0)) {
+        let interval = 0;
+        try { interval = options.minFrameIntervalMs?.() ?? 0; } catch (error) { failures.push(error); }
+        // The source jitter allowance remains presentation-only.
+        if (!failures.length && live(generation) && !(interval > 0 && lastPresentedAt !== null && time - lastPresentedAt < interval - 1)) {
+          lastPresentedAt = time; renderRequested = false;
+          try { options.tick(); } catch (error) { failures.push(error); }
+          if (!failures.length && live(generation)) {
+            let keep = false;
+            try { keep = continuousRefs > 0 || (options.shouldKeepRendering?.() ?? false); } catch (error) { failures.push(error); }
+            if (!failures.length && live(generation) && (continuousRefs > 0 || keep)) renderRequested = true;
+          }
+        }
+      }
+    } catch (error) { failures.push(error); }
+    finally {
+      inFrame = false;
+      // A failed callback does not silently paint/retry. The host chooses its
+      // existing fatal/restart policy; explicit later requests can resume it.
+      if (!failures.length && !stopped && !paused && (workRequested || renderRequested || continuousRefs > 0)) {
+        try { schedule(); } catch (error) { failures.push(error); }
+      } else {
+        try { setActive(false); } catch (error) { failures.push(error); }
+      }
+    }
+    throwFailures(failures, "Scheduler frame failed.");
   }
 
   return {
+    requestWork(): void {
+      if (stopped || paused) return;
+      workRequested = true; schedule();
+    },
     requestRender(): void {
-      renderRequested = true;
-      schedule();
+      if (stopped) return;
+      renderRequested = true; schedule();
     },
     beginContinuous(): void {
-      continuousRefs += 1;
-      schedule();
+      if (stopped) return;
+      continuousRefs += 1; renderRequested = true; schedule();
     },
-    endContinuous(): void {
-      if (continuousRefs > 0) continuousRefs -= 1;
-    },
-    isContinuous(): boolean {
-      return continuousRefs > 0;
-    },
+    endContinuous(): void { if (continuousRefs > 0) continuousRefs -= 1; },
+    isContinuous(): boolean { return continuousRefs > 0; },
     setPaused(next: boolean): void {
-      if (next === paused) return;
+      if (stopped || next === paused) return;
       paused = next;
+      const generation = ++lifecycleGeneration;
+      workRequested = false; renderRequested = false;
       if (paused) {
-        if (handle !== 0) {
-          cancelFrame(handle);
-          handle = 0;
+        const frame = pending; pending = null;
+        const failures: unknown[] = [];
+        try { if (frame?.handle) cancelFrame(frame.handle); } catch (error) { failures.push(error); }
+        if (lifecycleGeneration === generation && paused && !stopped) {
+          try { setActive(false); } catch (error) { failures.push(error); }
         }
-        setActive(false);
+        throwFailures(failures, "Scheduler pause cleanup failed.");
       } else {
-        schedule();
+        // Preserve the source's first presentation on unpause, even when idle.
+        renderRequested = true; schedule();
       }
     },
     stop(): void {
-      stopped = true;
-      if (handle !== 0) {
-        cancelFrame(handle);
-        handle = 0;
-      }
-      setActive(false);
-      activeListeners.clear();
+      stopped = true; lifecycleGeneration++;
+      continuousRefs = 0; renderRequested = false; workRequested = false;
+      const frame = pending; pending = null;
+      const failures: unknown[] = [];
+      try { if (frame?.handle) cancelFrame(frame.handle); } catch (error) { failures.push(error); }
+      try { setActive(false); } catch (error) { failures.push(error); }
+      finally { activeListeners.clear(); }
+      throwFailures(failures, "Scheduler stop cleanup failed.");
     },
-    isActive(): boolean {
-      return active;
-    },
+    isActive(): boolean { return active; },
     onActiveChange(listener): () => void {
+      if (stopped) return () => undefined;
       activeListeners.add(listener);
-      return () => {
-        activeListeners.delete(listener);
-      };
+      return () => { activeListeners.delete(listener); };
     },
   };
 }

@@ -1,0 +1,81 @@
+{
+  "status": "merged-prepared-unchecked-source-only",
+  "sourceRevision": "90e23b3ee96f53ec5900afc5991a21fffa58649d",
+  "mappings": [
+    {
+      "source": "src/diagnostics/createMeshInspector.ts",
+      "destinations": [
+        "src/babylon/diagnostics/createMeshInspector.ts"
+      ],
+      "sourceBlob": "1bf9cabbc869d366d6ec7d9517c70ce4135c4b18",
+      "sourceSha256": "56c5b9591ddb363aa651b4cbe747b9f3294d46563aef85337a473a4d8c7952e6",
+      "destinationSha256": "369bdd82799052075690bbe3d1169c7c6437993ec477fd0884b5be76fbfc8000",
+      "transformation": "Preserve generic tree/selection/wireframe overlays, supplied scene and source readiness/disposal behavior. Readiness uses renderer own module; requestRender/whenReady injected. Structural handle targets public UI MeshInspectorPanelPort; no engine/app feature roots copied."
+    },
+    {
+      "source": "src/diagnostics/createMeshInspector.test.ts",
+      "destinations": [
+        "src/babylon/diagnostics/createMeshInspector.test.ts"
+      ],
+      "sourceBlob": "89a71b12aba8a136e1029523ef0d65a94d3a8b68",
+      "sourceSha256": "66db711a08970dc3c3a6423e2281cacb3a1ee5370ee1835f24197a275252adca",
+      "destinationSha256": "dc0436e266c8cc0ed558a175ef5e2bbe84d4821574b0b49a9c9b8cb0306382e4",
+      "transformation": "Retain original tree/selection/overlay/hidden readiness/stale disposal assertions, adapting imports to renderer-local extraction and supplied readiness ports. Prepared source only; assertions unrun."
+    },
+    {
+      "source": "src/diagnostics/createVectorDebugDrawing.ts",
+      "destinations": [
+        "src/babylon/diagnostics/createVectorDebugDrawing.ts"
+      ],
+      "sourceBlob": "91c318e3491d4abf33d897c60f632e4639ccd438",
+      "sourceSha256": "d528a18cdd940314f16065fe9cbc81fd27d3c3f441951fd80b94389a63e089cd",
+      "destinationSha256": "c4f66ca4b75fdc6721d32e970c2cba8045907a22a87fdfbd7a7c4363c1bdad34",
+      "transformation": "Preserve arrow/arc geometry and ready-before-reveal label cadence with host monotonic seconds. Canvas DynamicTexture construction/update uses supplied renderer CanvasTextureDevicePorts; labels require the port before geometry allocation or settings mutation. No ambient canvas/clock/frame authority."
+    },
+    {
+      "source": "src/diagnostics/createVectorDebugDrawing.test.ts",
+      "destinations": [
+        "src/babylon/diagnostics/createVectorDebugDrawing.test.ts"
+      ],
+      "sourceBlob": "6b581068471616436b8a8f935c38cc25dd8c6a08",
+      "sourceSha256": "e067e9a38773ea5ce87a558ff41d2261103e143788edf1a4641b81a447e300b6",
+      "destinationSha256": "23dd2e23b3cb67047190eb5dd8cf171b29a43df9a47a060d843a4c4165fe8f15",
+      "transformation": "Retain original vector/arc settings/geometry/label cadence/readiness/disposal assertions, adapting public host canvas transfer and local imports. Prepared source only; assertions unrun."
+    },
+    {
+      "source": "src/diagnostics/drawing.ts",
+      "destinations": [
+        "src/babylon/diagnostics/index.ts"
+      ],
+      "sourceBlob": "5769b6e4b68695e59423b9e80ae1206f918a2417",
+      "sourceSha256": "6e258d398a6c26642f8981ce2fc4e99fd44f416efaccd5518979b541621b87d5",
+      "destinationSha256": "7c37cfe8f90fce6ba62104d9e58f2eb0b5a010c290c1c1d3fc8294ee24ec5b2a",
+      "transformation": "Optional generic diagnostics public barrel; no feature catalogue, engine/host imports or root pure-module dependency. Loading Babylon definitions creates no scene/device/frame queue."
+    },
+    {
+      "source": "src/perf/metrics.ts",
+      "destinations": [
+        "src/babylon/diagnostics/metrics.ts"
+      ],
+      "sourceBlob": "81e544b97ce0a24e0139637a127c4ab4713bf27a",
+      "sourceSha256": "9ad9384da94649ef17a50dcec94a3c719356d3bdbf9938de9818b28d1025a367",
+      "destinationSha256": "635211c8b5022b625c728166750127cb6988822dbd7d0c78f839405c0eb08947",
+      "transformation": "Preserve frame intervals/p95/active meshes/format and nullable drawCalls. Inject monotonic millisecond clock, memory bytes or null, and feature tile/culling readings; expose validated frameSampleCount policy with original 120 default. Original WGS84 culling implementation remains engine-owned. New causal metrics tests are authored, unrun."
+    },
+    {
+      "source": "src/diagnostics/index.test.ts",
+      "destinations": [
+        "tests/diagnosticsImportBoundary.test.ts"
+      ],
+      "sourceBlob": "cde7b084074362a71935fc473909d7f3404c38e2",
+      "sourceSha256": "1c5ffe4d2c425d50b23018ba80a67cd7217f435b4fd45414b880a1256083020e",
+      "destinationSha256": "07b35de4a1755cb828994e4f6a2a53225e864e8413da484f827b015f398c0bfd",
+      "transformation": "Retain original second positive dependency assertion against actual Renderer diagnostics/index.ts -> createMeshInspector.ts and Babylon import, preserving static source scanner with emitted .js -> .ts/.tsx resolution. Original first pure assertion is UI-owned. Full original test retained under source-only evidence; no fabricated heavy fixture, no checks executed."
+    }
+  ],
+  "owner": "foss-earth/renderer",
+  "compatibility": "Host injects canvas texture device before labels enablement, monotonic seconds for vector updates, and monotonic ms/memory bytes or null/feature readings for metrics. MeshInspector structurally targets new public UI MeshInspectorPanelPort; current checked UI artifact unavailable. No new scene/frame/device authority or globe culling algorithm. Canonical adoption, expanded clean filtered source ancestry, installed gates and native hardware qualification remain pending. Original positive drawing import-boundary assertion retained against actual source graph; emitted .js imports map back to .ts/.tsx. Original pure assertion remains UI-owned. Vitest source-test inclusion/default+disk forceRerunTriggers are prepared, unrun.",
+  "mergedInto": "extraction-provenance.json",
+  "checksExecuted": false,
+  "artifactBuilt": false
+}

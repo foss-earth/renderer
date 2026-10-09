@@ -1,4 +1,5 @@
 import type { ParameterSpec } from "@foss-earth/ui/settings";
+export { FRAME_PROFILING_IDS, frameProfilingParameters } from "./profiling.js";
 
 export const RENDERER_TAB = "renderer";
 

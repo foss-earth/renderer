@@ -1,4 +1,4 @@
-import { createRenderScheduler, type RenderScheduler, type RenderSchedulerOptions, type RenderFrameCallback } from "./renderScheduler.js";
+import { createRenderScheduler, type WorkRenderScheduler, type RenderSchedulerOptions, type RenderFrameCallback } from "./renderScheduler.js";
 
 export interface AnimationFrameHost {
   requestAnimationFrame(callback: RenderFrameCallback): number;
@@ -13,7 +13,7 @@ export interface BrowserRenderSchedulerOptions extends Omit<RenderSchedulerOptio
 }
 
 /** Creates exactly one core scheduler. Browser globals are read only when called. */
-export function createBrowserRenderScheduler(options: BrowserRenderSchedulerOptions): RenderScheduler {
+export function createBrowserRenderScheduler(options: BrowserRenderSchedulerOptions): WorkRenderScheduler {
   const host = options.host ?? globalThis as unknown as Partial<AnimationFrameHost>;
   if ((!options.requestFrame && !host.requestAnimationFrame) || (!options.cancelFrame && !host.cancelAnimationFrame)) {
     throw new Error("Supply animation-frame ports or call this browser adapter in an animation-frame host.");

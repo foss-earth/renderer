@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"], "types": [], "strict": true,
+    "skipLibCheck": true, "noEmit": true, "incremental": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/public-consumer.tsbuildinfo"
+  },
+  "include": ["profiling-host.ts", "upload-host.ts"]
+}

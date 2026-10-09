@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const args = Object.fromEntries(process.argv.slice(2).map(arg => {
@@ -25,14 +25,14 @@ for (const [argument, name] of [["renderer", "@foss-earth/renderer"], ["ui", "@f
 }
 writeFileSync(path.join(workspace, "package.json"), JSON.stringify({ name: "renderer-installed-fixture", version: "1.0.0", private: true, type: "module", dependencies }, null, 2));
 const run = (command, argv, log, options = {}) => {
-  try {
-    const result = execFileSync(command, argv, { cwd: workspace, encoding: "utf8", ...options });
-    writeFileSync(path.join(output, log), result);
-    return result;
-  } catch (error) {
-    writeFileSync(path.join(output, log), `${error.stdout ?? ""}\n${error.stderr ?? ""}`);
-    throw error;
-  }
+  const filename = path.join(output, log);
+  const fd = openSync(filename, "w");
+  let result;
+  try { result = spawnSync(command, argv, { cwd: workspace, ...options, stdio: ["ignore", fd, fd] }); }
+  finally { closeSync(fd); }
+  if (result.error) throw result.error;
+  assert.equal(result.status, 0, `Installed consumer command failed; inspect ${filename}`);
+  return readFileSync(filename, "utf8");
 };
 run("npm", ["install", "--offline", "--ignore-scripts", "--omit=optional", "--no-audit", "--no-fund", "--cache", path.join(output, "npm-cache")], "install.log");
 

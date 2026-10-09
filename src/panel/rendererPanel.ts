@@ -1,8 +1,6 @@
-import type { RendererMode, RendererSelection } from "../engine/babylon/createRendererMode";
-import { getAppSettings } from "../settings/appSettings";
-import type { SettingsRegistry } from "../settings/registry";
-import { checkChoice, createChoiceGroup, createChoiceNote } from "./choiceGroup";
-import { appendHostSections, createParameterSection, createSectionsElement, type SectionsElementEntry } from "./settings/parameterSection";
+import type { RendererMode, RendererSelection } from "../rendererTypes.js";
+import type { SettingsRegistry } from "@foss-earth/ui/settings";
+import type { RendererPanelUiPort, RendererPanelSection } from "./types.js";
 
 const RENDERER_CHOICE_NAME = "foss-earth-renderer";
 
@@ -15,13 +13,15 @@ export interface RendererPanelOptions {
    */
   onChange(force: RendererMode | null): void;
   /** The registry of the tab's parameters; the app's when omitted. */
-  settings?: SettingsRegistry;
+  settings: SettingsRegistry;
+  /** UI-owned factories plus the host document/input realm; no UI implementation is copied. */
+  ui: RendererPanelUiPort;
   /**
    * Sections an app draws itself for sections of this tab, by section id
    * ("performance" for renderer/performance), such as FOSS Earth's
    * Performance debug. They follow the tab's other sections.
    */
-  sections?: readonly SectionsElementEntry[];
+  sections?: readonly RendererPanelSection[];
 }
 
 export interface RendererPanelHandle {
@@ -56,7 +56,8 @@ function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["
  * section a host's parameters are homed in, such as 0sfs's Instruments.
  */
 export function createRendererPanel(options: RendererPanelOptions): RendererPanelHandle {
-  const settings = options.settings ?? getAppSettings();
+  const settings = options.settings;
+  const { document, checkChoice, createChoiceGroup, createChoiceNote, appendHostSections, createParameterSection, createSectionsElement } = options.ui;
   const element = document.createElement("div");
   element.className = "foss-earth-choice-panel";
   const group = createChoiceGroup(RENDERER_CHOICE_NAME, "Renderer", [
@@ -80,7 +81,7 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
 
   const onChange = (event: Event): void => {
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || input.name !== RENDERER_CHOICE_NAME) return;
+    if (!options.ui.isInput(input) || input.name !== RENDERER_CHOICE_NAME) return;
     const value = input.value;
     options.onChange(value === "webgpu" || value === "webgl2" || value === "webgl" ? value : null);
   };
@@ -93,9 +94,12 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
   const hostSections = appendHostSections(settings, "renderer", sections, ["backend", ...own.map(section => section.id)]);
   for (const section of own) sections.append({ ...section, id: `renderer.${section.id}` });
 
+  let destroyed = false;
   return {
     element: sections.element,
     destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
       element.removeEventListener("change", onChange);
       backend.destroy();
       hostSections.destroy();

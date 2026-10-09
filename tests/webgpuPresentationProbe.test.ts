@@ -1,7 +1,5 @@
-// @vitest-environment jsdom
-
 import { describe, expect, it } from "vitest";
-import { isWebGpuPresentationError } from "./webgpuPresentationProbe";
+import { isWebGpuPresentationError } from "../src/babylon/webgpuPresentationProbe.js";
 
 describe("isWebGpuPresentationError", () => {
   it("detects swapchain import memory failures", () => {

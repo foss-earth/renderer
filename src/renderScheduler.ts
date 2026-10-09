@@ -1,3 +1,6 @@
+/** Host frame timestamps are milliseconds on one monotonic clock. */
+export type RenderFrameCallback = (time: number) => void;
+
 export interface RenderSchedulerOptions {
   /** Per-frame work. Called inside requestAnimationFrame. */
   tick(): void;
@@ -11,9 +14,9 @@ export interface RenderSchedulerOptions {
    * A frame due sooner waits for the next one. 0 or omitted: every frame.
    */
   minFrameIntervalMs?: () => number;
-  /** rAF/cAF injection for tests. */
-  requestFrame?: (cb: FrameRequestCallback) => number;
-  cancelFrame?: (handle: number) => void;
+  /** The host supplies its single animation-frame authority. */
+  requestFrame: (cb: RenderFrameCallback) => number;
+  cancelFrame: (handle: number) => void;
 }
 
 export interface RenderScheduler {
@@ -40,10 +43,7 @@ export interface RenderScheduler {
 }
 
 export function createRenderScheduler(options: RenderSchedulerOptions): RenderScheduler {
-  const requestFrame =
-    options.requestFrame ?? ((cb) => window.requestAnimationFrame(cb));
-  const cancelFrame =
-    options.cancelFrame ?? ((handle) => window.cancelAnimationFrame(handle));
+  const { requestFrame, cancelFrame } = options;
 
   let handle = 0;
   let continuousRefs = 0;
@@ -66,10 +66,10 @@ export function createRenderScheduler(options: RenderSchedulerOptions): RenderSc
     setActive(true);
   }
 
-  function tick(time?: number): void {
+  function tick(time: number): void {
     handle = 0;
     if (stopped || paused) return;
-    const now = typeof time === "number" ? time : performance.now();
+    const now = time;
     const interval = options.minFrameIntervalMs?.() ?? 0;
     // A millisecond early still counts: display frames arrive with jitter.
     if (interval > 0 && lastTickAt !== null && now - lastTickAt < interval - 1) {

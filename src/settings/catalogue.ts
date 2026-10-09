@@ -1,4 +1,4 @@
-import type { ParameterSpec } from "../types";
+import type { ParameterSpec } from "@foss-earth/ui/settings";
 
 export const RENDERER_TAB = "renderer";
 
@@ -178,3 +178,10 @@ export const RENDERER_EXPERIMENT_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/engine/babylon/presentationCandidates.ts",
   },
 ];
+
+/** Generic renderer experiments; 360 supplies its own three legacy feature records. */
+export const RENDERER_OWNED_EXPERIMENT_PARAMETERS = RENDERER_EXPERIMENT_PARAMETERS.filter(spec =>
+  spec.id === RENDERER_EXPERIMENT_IDS.all || spec.id === RENDERER_EXPERIMENT_IDS.presentationCandidates);
+/** Temporary exact-data handoff for 360; register these once in the host, never twice. */
+export const LEGACY_360_RENDERER_PARAMETER_HANDOFF = RENDERER_EXPERIMENT_PARAMETERS.filter(spec =>
+  spec.id !== RENDERER_EXPERIMENT_IDS.all && spec.id !== RENDERER_EXPERIMENT_IDS.presentationCandidates);

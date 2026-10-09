@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RENDERER_PREFERENCE_STORAGE_KEY } from "./rendererPreference";
+import { createBrowserRendererHost } from "../src/babylon/browserRenderer.js";
+import { RENDERER_PREFERENCE_STORAGE_KEY } from "../src/rendererPreference.js";
 
 const mockState = vi.hoisted(() => ({
   isSupportedAsync: true,
@@ -92,8 +93,8 @@ vi.mock("@babylonjs/core", () => {
   };
 });
 
-vi.mock("./webgpuPresentationProbe", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./webgpuPresentationProbe")>();
+vi.mock("../src/babylon/webgpuPresentationProbe.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/babylon/webgpuPresentationProbe.js")>();
   return {
     ...actual,
     probeWebGpuPresentation: vi.fn(async (_engine, scene) => {
@@ -130,9 +131,9 @@ beforeEach(() => {
 
 describe("bootstrapGlobeRenderer", () => {
   it.each(["webgl", "webgl2", "webgpu"] as const)("uses reverse depth before creating the %s scene or presentation probe", async force => {
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
-    const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { force });
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
+    const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { force, host: createBrowserRendererHost() });
     expect(renderer.engine.useReverseDepthBuffer).toBe(true);
     expect(mockState.sceneDepthModes.length).toBeGreaterThan(0);
     expect(mockState.sceneDepthModes.every(Boolean)).toBe(true);
@@ -144,10 +145,10 @@ describe("bootstrapGlobeRenderer", () => {
     mockState.probeOk = false;
     mockState.probeErrors = ["Requested allocation size (204800) is smaller than the image requires (311296)."];
 
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
-    const { renderer, scene } = await bootstrapGlobeRenderer(canvas);
+    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
 
     expect(renderer.requested).toBe("auto");
     expect(renderer.mode).toBe("webgl2");
@@ -162,11 +163,11 @@ describe("bootstrapGlobeRenderer", () => {
 
   it("uses persisted WebGL2 without attempting WebGPU", async () => {
     window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgl2");
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
 
-    const { renderer } = await bootstrapGlobeRenderer(canvas);
+    const { renderer } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
 
     expect(renderer.mode).toBe("webgl2");
     expect(renderer.diagnostics?.fromPersistedPreference).toBe(true);
@@ -175,32 +176,32 @@ describe("bootstrapGlobeRenderer", () => {
   });
 
   it("draws with antialiasing only when renderer.antialias asks, and says when WebGPU could only start without it", async () => {
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const canvas = document.createElement("canvas");
 
-    const webgl = await bootstrapGlobeRenderer(canvas, { force: "webgl2", antialias: false });
+    const webgl = await bootstrapGlobeRenderer(canvas, { force: "webgl2", antialias: false, host: createBrowserRendererHost() });
     expect(mockState.webGlCtor).toHaveBeenLastCalledWith(canvas, false, expect.anything(), true);
     expect(webgl.renderer).toMatchObject({ antialias: false, devicePixels: true });
 
-    const webgpu = await bootstrapGlobeRenderer(canvas, { force: "webgpu", antialias: false });
+    const webgpu = await bootstrapGlobeRenderer(canvas, { force: "webgpu", antialias: false, host: createBrowserRendererHost() });
     expect(webgpu.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: true });
 
     // The safe fallback turns both off, whatever was asked.
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     vi.mocked(probeWebGpuPresentation)
       .mockImplementationOnce(async () => ({ ok: false, errors: ["no present"] }))
       .mockImplementationOnce(async () => ({ ok: true, errors: [] }));
-    const safe = await bootstrapGlobeRenderer(canvas, { force: "webgpu" });
+    const safe = await bootstrapGlobeRenderer(canvas, { force: "webgpu", host: createBrowserRendererHost() });
     expect(safe.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: false });
   });
 
   it("uses persisted WebGPU with a presentation probe", async () => {
     window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgpu");
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
 
-    const { renderer } = await bootstrapGlobeRenderer(canvas);
+    const { renderer } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
 
     expect(renderer.mode).toBe("webgpu");
     expect(renderer.diagnostics?.fromPersistedPreference).toBe(true);
@@ -208,10 +209,10 @@ describe("bootstrapGlobeRenderer", () => {
   });
 
   it("persists WebGPU when presentation probe succeeds on the real scene", async () => {
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
-    const { probeWebGpuPresentation } = await import("./webgpuPresentationProbe");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
-    const { renderer, scene } = await bootstrapGlobeRenderer(canvas);
+    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
 
     expect(renderer.mode).toBe("webgpu");
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
@@ -225,13 +226,29 @@ describe("bootstrapGlobeRenderer", () => {
     mockState.probeOk = false;
     mockState.probeErrors = ['[Invalid TextureView "TextureView_SwapChain_ResolveTarget"] is invalid.'];
 
-    const { bootstrapGlobeRenderer } = await import("./createRendererMode");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const canvas = document.createElement("canvas");
-    const { renderer } = await bootstrapGlobeRenderer(canvas, { force: "webgpu" });
+    const { renderer } = await bootstrapGlobeRenderer(canvas, { force: "webgpu", host: createBrowserRendererHost() });
 
     expect(renderer.requested).toBe("webgpu");
     expect(renderer.mode).toBe("webgl2");
     expect(renderer.fallbackReason).toContain("TextureView_SwapChain_ResolveTarget");
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgl2");
   });
+  it("releases a WebGPU engine when initialization fails, before falling back", async () => {
+    mockState.webGpuInitAsync.mockRejectedValueOnce(new Error("initial device rejected"));
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const result = await bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost(), force: "webgpu" });
+    expect(result.renderer.mode).toBe("webgl2");
+    expect(result.renderer.fallbackReason).toContain("initial device rejected");
+    expect(mockState.webGpuDispose).toHaveBeenCalledOnce();
+  });
+
+  it("disposes the unreturned scene of the compatibility engine-only factory", async () => {
+    const { createRendererMode } = await import("../src/babylon/createRendererMode.js");
+    const renderer = await createRendererMode(document.createElement("canvas"), { host: createBrowserRendererHost(), force: "webgl2" });
+    expect(renderer.mode).toBe("webgl2");
+    expect(mockState.webGpuSceneDispose).toHaveBeenCalledOnce();
+  });
+
 });

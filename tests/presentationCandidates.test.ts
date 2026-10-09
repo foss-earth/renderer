@@ -1,6 +1,6 @@
 import { FreeCamera, MeshBuilder, NullEngine, Scene, Vector3 } from "@babylonjs/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { createPresentationCandidates } from "./presentationCandidates";
+import { createPresentationCandidates } from "../src/babylon/presentationCandidates.js";
 
 const PRESENTATION = 0x10000000;
 const engines: NullEngine[] = [];

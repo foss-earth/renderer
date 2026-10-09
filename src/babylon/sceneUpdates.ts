@@ -33,55 +33,13 @@ import type { AbstractMesh, Camera, Light, Observable, Scene } from "@babylonjs/
  * revealing them takes one frame and never a frame that skips them.
  */
 
-/** The first wait between two readiness checks: a shader that is ready is drawn within a frame of it. */
-const READY_CHECK_FIRST_MS = 16;
-/** The longest wait between two checks, for what is slow or never gets ready, such as a texture that failed. */
-const READY_CHECK_LONGEST_MS = 250;
-/** How much longer each check that finds nothing newly ready waits; one that does goes back to the first wait. */
-const READY_CHECK_GROWTH = 1.5;
-
-export interface ReadinessTimers {
-  setTimeout(callback: () => void, ms: number): unknown;
-  clearTimeout(handle: unknown): void;
-}
+import { checkUntilSettled, type ReadinessPolicy, type ReadinessTimers } from "../readiness.js";
+export type { ReadinessPolicy, ReadinessTimers } from "../readiness.js";
 
 const defaultTimers: ReadinessTimers = {
   setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
   clearTimeout: handle => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
 };
-
-/**
- * Checks `pending` until it reports nothing left, then calls `settled` once.
- * The checks start a frame apart and grow apart while nothing changes, so
- * something that never gets ready costs a check a quarter of a second rather
- * than one a frame. Returns a cancel function.
- */
-function checkUntilSettled(
-  pendingNow: number,
-  pending: () => number,
-  settled: () => void,
-  timers: ReadinessTimers,
-): () => void {
-  let handle: unknown = null;
-  let delay = READY_CHECK_FIRST_MS;
-  let last = pendingNow;
-  const check = (): void => {
-    handle = null;
-    const now = pending();
-    if (now === 0) {
-      settled();
-      return;
-    }
-    delay = now < last ? READY_CHECK_FIRST_MS : Math.min(READY_CHECK_LONGEST_MS, delay * READY_CHECK_GROWTH);
-    last = now;
-    handle = timers.setTimeout(check, delay);
-  };
-  handle = timers.setTimeout(check, delay);
-  return () => {
-    if (handle !== null) timers.clearTimeout(handle);
-    handle = null;
-  };
-}
 
 /** A material that failed to compile, with every fallback tried, will never draw. */
 function failedToCompile(mesh: AbstractMesh): boolean {
@@ -109,6 +67,8 @@ function abortError(signal: AbortSignal): unknown {
 export interface WhenMeshesReadyOptions {
   signal?: AbortSignal;
   timers?: ReadinessTimers;
+  /** Host-owned readiness polling values; omitted values retain the original policy. */
+  readinessPolicy?: ReadinessPolicy;
 }
 
 /**
@@ -149,7 +109,7 @@ export function whenMeshesReady(
     }, () => {
       signal?.removeEventListener("abort", onAbort);
       resolve();
-    }, timers);
+    }, timers, options.readinessPolicy);
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
@@ -160,6 +120,8 @@ export interface SceneUpdatesOptions {
   /** True from the start of a frame's tick until its render: what changes then, that frame draws. */
   isPreparingFrame(): boolean;
   timers?: ReadinessTimers;
+  /** Host-owned readiness polling values; omitted values retain the original policy. */
+  readinessPolicy?: ReadinessPolicy;
 }
 
 export interface SceneUpdates {
@@ -267,7 +229,7 @@ export function createSceneUpdates(options: SceneUpdatesOptions): SceneUpdates {
       }, () => {
         cancelWait = null;
         if (!disposed) requestRender();
-      }, timers);
+      }, timers, options.readinessPolicy);
     },
     cancelSettle,
     dispose(): void {

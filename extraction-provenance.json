@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "package": "@foss-earth/renderer",
+  "packageVersion": "0.1.0",
+  "sourceRepository": "https://github.com/foss-earth/foss-earth.github.io.git",
+  "sourceRevision": "90e23b3ee96f53ec5900afc5991a21fffa58649d",
+  "sourcePolicy": "Committed source only; original dirty weather/height/atmosphere inputs excluded. Independent clean filtered lineage preserves every human author/committer header; original-to-clean-to-filtered mapping is in SOURCE_LINEAGE.json. Common full-ref audit and publication admission remain pending.",
+  "license": "AGPL-3.0-only",
+  "mappings": [
+    {
+      "sourcePath": "LICENSE",
+      "sourceBlob": "be3f7b28e564e7dd05eaf59d64adba1a4065ac0e",
+      "sourceSha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "destinations": [
+        {
+          "path": "LICENSE",
+          "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+        }
+      ],
+      "transformation": "Exact source bytes; AGPL-3.0-only."
+    },
+    {
+      "sourcePath": "src/engine/babylon/renderScheduler.ts",
+      "sourceBlob": "20523aeb21accc0e399fa70d589ff2e980d9d4c5",
+      "sourceSha256": "1fd8fc6adb7bab029771fdf6e95e03f19051c35a80ff0b9f62da8115dcdc89cf",
+      "destinations": [
+        {
+          "path": "src/renderScheduler.ts",
+          "sha256": "c33a81e571b52b06e75a75a5f59f84ca7d62bd98ad693bd6ad378e69385ee049"
+        }
+      ],
+      "transformation": "Preserved scheduler implementation; require host frame ports, replace DOM callback type with RenderFrameCallback, use supplied monotonic frame timestamp."
+    },
+    {
+      "sourcePath": "src/engine/babylon/renderScheduler.test.ts",
+      "sourceBlob": "c6c32c42f43e6cab68153fa9c0b1d20eae1156b7",
+      "sourceSha256": "8cea66701c795c35ed281cce8df14f6c26dceafa9fd98b94bc935e9ee1fe410a",
+      "destinations": [
+        {
+          "path": "tests/renderScheduler.test.ts",
+          "sha256": "39cb46b99e37cdf2e83f302d89ff82dd0c523d7b7247a7ea74f23dbd97b92993"
+        }
+      ],
+      "transformation": "Preserved source tests with explicit .js import and DOM-neutral callback type; added in-tick request and active-state subscription regression coverage."
+    },
+    {
+      "sourcePath": "src/engine/babylon/sceneUpdates.ts",
+      "sourceBlob": "d2e1c477b8aff7061a8cd287e2f4f3b0502e152d",
+      "sourceSha256": "3f02a3cc196324fc47cbea32882ab5d91c85ebf98cb57421245f387e52303d62",
+      "destinations": [
+        {
+          "path": "src/babylon/sceneUpdates.ts",
+          "sha256": "521b0697b4fbd886ab88162f592fdd1236a33bbe1591529194fe45352079d737"
+        },
+        {
+          "path": "src/readiness.ts",
+          "sha256": "1cc2b8b1ad9b9a9d35a1616ef2a290c7bef2a6d42288def1213d91fa4f45cab3"
+        }
+      ],
+      "transformation": "Preserved Babylon scene observation/readiness behavior; generic polling extracted to pure core, host policy option exposed, cancellation suppresses already-dequeued checks."
+    },
+    {
+      "sourcePath": "src/engine/babylon/sceneUpdates.test.ts",
+      "sourceBlob": "e2ff78a27556da0c1aa20e9a3d951ab818c58113",
+      "sourceSha256": "7cd4478a6c2042aba4d1aac7f1a3239317e72a8b793c9f3ce289089df1be67f0",
+      "destinations": [
+        {
+          "path": "tests/sceneUpdates.test.ts",
+          "sha256": "402eda938de71661a88f408cfe05d60727a53115c5255b136f5a7cc36e8aa227"
+        }
+      ],
+      "transformation": "Preserved source tests with explicit .js adapter import and Mock<() => void> typing for installed Vitest 4.1.6."
+    },
+    {
+      "sourcePath": "src/engine/babylon/createRendererMode.ts",
+      "sourceBlob": "8da57eec27cca3b34980ade4dcbd363107114887",
+      "sourceSha256": "e9ee154dc768eb109727492399b108d349a351fa5587870b35f0ceeb7b4597de",
+      "destinations": [
+        {
+          "path": "src/babylon/createRendererMode.ts",
+          "sha256": "54193722f44968f33362d099ff43e1d5e80c612c50713d5cd785559082e6e81e"
+        },
+        {
+          "path": "src/rendererTypes.ts",
+          "sha256": "2fc76d50f1000a5f119a1b9920f478f8cb1b0e9f7cbb06dd7742c45f478946d0"
+        }
+      ],
+      "transformation": "Selection/types extracted with explicit environment/preference/presentation ports; reverse-depth/scene defaults, remembered modes, normal/safe WebGPU probes, actual WebGL version and fallbacks preserved. Failed init disposes engine; engine-only compatibility factory disposes unreturned scene; probe engine cleanup survives scene disposal failure. Await asynchronous initialization inside try/catch so its intended WebGL fallback actually handles rejected initialization."
+    },
+    {
+      "sourcePath": "src/engine/babylon/createRendererMode.test.ts",
+      "sourceBlob": "90e57f3c6ee9f34440bf66d8e5b6f0b59aae1ace",
+      "sourceSha256": "d0979d0583e55bb119c3bc2cf968cfbe76cf311b8bcb96120755fb1e6ae52b56",
+      "destinations": [
+        {
+          "path": "tests/createRendererMode.test.ts",
+          "sha256": "bb5fec277af576aaddf68e48e5210637d8060d72e58b952732ab463424b2cad5"
+        }
+      ],
+      "transformation": "Preserved source mocked-mode regression tests using explicit browser host/public .js imports; added initialization and engine-only disposal regressions."
+    },
+    {
+      "sourcePath": "src/engine/babylon/rendererPreference.ts",
+      "sourceBlob": "87be97e0d0b7e3192657ab45278a766b86e1cbbd",
+      "sourceSha256": "376b60ed26cd018b4f4eb588bc8913595e8f330a4c030f4b67e0abf815f3bc17",
+      "destinations": [
+        {
+          "path": "src/rendererPreference.ts",
+          "sha256": "4acd57cc1bd8898da3042af512333d635e01c07d6f2079729f72dc9f32939760"
+        },
+        {
+          "path": "src/babylon/browserRenderer.ts",
+          "sha256": "ca2dfb8aa995f7f2a70afaca67f8f3ee740eb3a70fc5e9f9ea3c12ff3611ef52"
+        }
+      ],
+      "transformation": "Storage functions extracted to pure explicit storage port; reload/URL cleanup takes host settings/location/store. Browser adapter creates environment ports lazily; no app settings import."
+    },
+    {
+      "sourcePath": "src/engine/babylon/webgpuPresentationProbe.ts",
+      "sourceBlob": "53ed25a51d5c8a8e1656fbce01743743776e8a3d",
+      "sourceSha256": "cfa32f99c3b57c9c876a227b9f8e176ce442b95feaa864b8e2523cdde0700bad",
+      "destinations": [
+        {
+          "path": "src/babylon/webgpuPresentationProbe.ts",
+          "sha256": "144085c5913f081eda1a6f55cc90901c8720a8d6fa05fa9d2e321ded246b7c65"
+        }
+      ],
+      "transformation": "Source probe/classifier preserved; host frame/delay ports and visible policy values replace implicit waits/constants. GPU event structure declared locally to avoid hidden type dependency."
+    },
+    {
+      "sourcePath": "src/engine/babylon/webgpuPresentationProbe.test.ts",
+      "sourceBlob": "d509ed9945b61ea9d5788a35d42762f534dddb9c",
+      "sourceSha256": "542133f6b139a47e4d5ab5b1530f0ffd1b52b0df44fd7e3d0a585e515663bd39",
+      "destinations": [
+        {
+          "path": "tests/webgpuPresentationProbe.test.ts",
+          "sha256": "dcb5610901da9cd3b873d080595da5c36f0cc417e6a464d96429563698b1ec83"
+        }
+      ],
+      "transformation": "Original classifier cases with .js import; Node environment suffices."
+    },
+    {
+      "sourcePath": "src/engine/babylon/presentationCandidates.ts",
+      "sourceBlob": "6722753ba2d0d36e92f61ac4f9adb52c61c6edfc",
+      "sourceSha256": "25ff994025c033a653adcd1bf0b5aee9a548bb5196a58fa8c4db65d58462a93a",
+      "destinations": [
+        {
+          "path": "src/babylon/presentationCandidates.ts",
+          "sha256": "25ff994025c033a653adcd1bf0b5aee9a548bb5196a58fa8c4db65d58462a93a"
+        }
+      ],
+      "transformation": "Exact committed implementation bytes."
+    },
+    {
+      "sourcePath": "src/engine/babylon/presentationCandidates.test.ts",
+      "sourceBlob": "e63f8506440911be433f309b60713502beea1d14",
+      "sourceSha256": "a3a159dde8f8e3a26b72d0a9b7f3997849fbcf07e6cb52b707008438d8333ec8",
+      "destinations": [
+        {
+          "path": "tests/presentationCandidates.test.ts",
+          "sha256": "dbebd2379676082743e08cc51593f0e3831b63ad8305017aa3f6b88fed1f88d3"
+        }
+      ],
+      "transformation": "Exact source tests except .js destination import."
+    },
+    {
+      "sourcePath": "src/engine/babylon/createBabylonRuntime.ts",
+      "sourceBlob": "18014094e72e2642356913f288445ec75c84851c",
+      "sourceSha256": "d144d8962f4539ab226fcbea892e5d0f92307bd8592f4345c06a49ec0e86129a",
+      "destinations": [
+        {
+          "path": "src/babylon/rendererLifecycle.ts",
+          "sha256": "e75965ba0c06a45b937d3665fa9633b6958e9eceef5861cc84c3a67a64735b1e"
+        }
+      ],
+      "transformation": "Mixed-runtime renderer extraction only: resolution/device context/antialias note, source active/idle readiness, saved renderer watches, resize/visibility, context-loss generation and restored frame, begin/end frame bracketing. Existing scheduler/scene/device/settings supplied; camera clipping and lease teardown injected. Full runtime, terrain/Sky/camera/feature implementations excluded."
+    },
+    {
+      "sourcePath": "src/shell/rendererPanel.ts",
+      "sourceBlob": "b98d7c7b8db28ef4c6b1c8daaa1d8e93890c07ca",
+      "sourceSha256": "085e0848c3d0d9308dc30207302eef840f0b54eda9485a0ec00e1648a969dbe0",
+      "destinations": [
+        {
+          "path": "src/panel/rendererPanel.ts",
+          "sha256": "c13d47ec186707ba50902b4bb7738a0c767945fc0b276650d18619a1af17e00c"
+        },
+        {
+          "path": "src/panel/types.ts",
+          "sha256": "e05134ae3a15a14c034659d3581a214af41caa80b7e32be6dcea2c20d7675ff4"
+        }
+      ],
+      "transformation": "Panel source retained with required public UI registry and explicit UI-owned factories/document/input realm. Removes app singleton imports; destroy made idempotent; no UI helper bodies copied."
+    },
+    {
+      "sourcePath": "src/shell/choicePanels.test.ts",
+      "sourceBlob": "be83fabe1408e250382e67f01721905bc8305f29",
+      "sourceSha256": "ce6804f04c3c6b2431bd3c30000b73390c1431d88b812feee436e2dbffa92148",
+      "destinations": [
+        {
+          "path": "tests/rendererPanel.test.ts",
+          "sha256": "e8a18b88f75d882035cb641782ec93e60e5b37d08f50586f7749bc268c006221"
+        }
+      ],
+      "transformation": "Renderer-only scenarios adapted to injected fake UI and public settings registry; other owner panel tests not copied."
+    },
+    {
+      "sourcePath": "src/settings/catalogue/renderer.ts",
+      "sourceBlob": "da28820181fddb60fe005cc9f817d498691a67ed",
+      "sourceSha256": "172c5e1061288073b949987ce58dd716598b07a0b1ba2e006077861ad4fbe1c8",
+      "destinations": [
+        {
+          "path": "src/settings/catalogue.ts",
+          "sha256": "8e083c69d270e4f86165bd4ecb96b15311e0109346789acc9b699b2e4e71bf00"
+        }
+      ],
+      "transformation": "Exact records/IDs/homes/defaults/bounds retained; type-only public UI import. Generic renderer experiments and legacy 360 feature records have separate handoff views."
+    },
+    {
+      "sourcePath": "NOTICE",
+      "sourceBlob": "cd6a1d92cce505eaeea37e9726a2f98a0a61a12d",
+      "sourceSha256": "323da85db96d02ed0cf48db889efa184037f538f002e868aeeff396ebb44a993",
+      "destinations": [
+        {
+          "path": "NOTICE",
+          "sha256": "323da85db96d02ed0cf48db889efa184037f538f002e868aeeff396ebb44a993"
+        }
+      ],
+      "transformation": "Exact original source notices."
+    }
+  ],
+  "newFiles": [
+    "src/resourceLifecycle.ts",
+    "src/browser.ts",
+    "src/index.ts",
+    "src/babylon/index.ts",
+    "tests/resourceLifecycle.test.ts",
+    "tests/readiness.test.ts",
+    "tests/browser.test.ts",
+    "fixtures/consumer.mjs",
+    "fixtures/pure-consumer.ts",
+    "src/panel/index.ts",
+    "tests/rendererPreference.test.ts",
+    "tests/rendererLifecycle.test.ts",
+    "tests/presentationProbeLifecycle.test.ts",
+    "tests/rendererChoice.test.ts",
+    "scripts/check-installed-artifact.mjs"
+  ],
+  "pendingAcceptance": [
+    "shared pinned CI caller/policy/conformance",
+    "lineage-preserving history acceptance",
+    "remote admission",
+    "exact published artifact pin",
+    "current application and downstream consumer adoption"
+  ],
+  "developmentContractPins": [
+    {
+      "package": "@foss-earth/ui",
+      "version": "0.1.0",
+      "artifactSha256": "3482714b95671eaf2abc23aa9be10974f38dbead09c868bf8d78559028eb9a7c",
+      "acceptance": "private staging; public archive/type contracts consumed only; no remote admission"
+    }
+  ]
+}

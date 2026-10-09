@@ -1,12 +1,12 @@
 import { HemisphericLight, Mesh, MeshBuilder, NullEngine, Scene, TransformNode, Vector3 } from "@babylonjs/core";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSceneUpdates, whenMeshesReady, type SceneUpdates } from "./sceneUpdates";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { createSceneUpdates, whenMeshesReady, type SceneUpdates } from "../src/babylon/sceneUpdates.js";
 
 let engine: NullEngine;
 let scene: Scene;
 let updates: SceneUpdates | null;
 let preparing: boolean;
-let requestRender: ReturnType<typeof vi.fn>;
+let requestRender: Mock<() => void>;
 
 /**
  * Lets Babylon report what was added - a millisecond later, on a timer - and

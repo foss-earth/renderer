@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "90e23b3ee96f53ec5900afc5991a21fffa58649d",
+  "cleanSourceRevision": "ab46270ad3da085eb88b43346c50133a24cce688",
+  "importedHead": "9f1cc863ba0d4dcc6590b48cac241aa2357e631c",
+  "paths": [
+    "LICENSE",
+    "NOTICE",
+    "src/engine/babylon/createBabylonRuntime.ts",
+    "src/engine/babylon/createRendererMode.test.ts",
+    "src/engine/babylon/createRendererMode.ts",
+    "src/engine/babylon/presentationCandidates.test.ts",
+    "src/engine/babylon/presentationCandidates.ts",
+    "src/engine/babylon/renderScheduler.test.ts",
+    "src/engine/babylon/renderScheduler.ts",
+    "src/engine/babylon/rendererPreference.ts",
+    "src/engine/babylon/sceneUpdates.test.ts",
+    "src/engine/babylon/sceneUpdates.ts",
+    "src/engine/babylon/webgpuPresentationProbe.test.ts",
+    "src/engine/babylon/webgpuPresentationProbe.ts",
+    "src/settings/catalogue/renderer.ts",
+    "src/shell/choicePanels.test.ts",
+    "src/shell/rendererPanel.ts"
+  ],
+  "commits": [
+    {
+      "originalCommit": "241d0493550c5c78f45931484bca88c23afa7460",
+      "cleanCommit": "241d0493550c5c78f45931484bca88c23afa7460",
+      "mark": ":3",
+      "importedCommit": "c84d1339504a2a63d7340cf99b52652fed63311c",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "b5111af95225895e0f8a930a193c2c8d248fa246",
+      "cleanCommit": "b5111af95225895e0f8a930a193c2c8d248fa246",
+      "mark": ":5",
+      "importedCommit": "b5d36865a387c793812411e05997121d0ec4e238",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "744be7b751c6eadb64950d3ab3700025d0efa5a6",
+      "cleanCommit": "744be7b751c6eadb64950d3ab3700025d0efa5a6",
+      "mark": ":7",
+      "importedCommit": "3a5a2d14ba0d31f74596ed6eb1da7b886328fc1c",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "fe7c791ec441d31451a647ebdc9f68e0f808dc0d",
+      "cleanCommit": "fe7c791ec441d31451a647ebdc9f68e0f808dc0d",
+      "mark": ":10",
+      "importedCommit": "aeed690ebca3a09fb9d7f07783a6017a6e1084a3",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "9f6535c4e888eb2d5d7bf6ecde1be7949a7105c3",
+      "cleanCommit": "9f6535c4e888eb2d5d7bf6ecde1be7949a7105c3",
+      "mark": ":12",
+      "importedCommit": "8361d9da2e76c6bf0384b204322c2788c7031d2c",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "d07fd6019d562c495d1b84790f653461de6668d5",
+      "cleanCommit": "d07fd6019d562c495d1b84790f653461de6668d5",
+      "mark": ":14",
+      "importedCommit": "da45ea4d4efeb433fe7b08b04849ab0983c91de4",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "4e0e6a1cc47bc0472c2ee096dbf8c839aed34361",
+      "cleanCommit": "4e0e6a1cc47bc0472c2ee096dbf8c839aed34361",
+      "mark": ":16",
+      "importedCommit": "7aeb8928f23ab6bbd6d32d74bba24404ec7c41bb",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "0966c7b26ae12b0456e19a8c7b7b6c4324a2aa01",
+      "cleanCommit": "0966c7b26ae12b0456e19a8c7b7b6c4324a2aa01",
+      "mark": ":20",
+      "importedCommit": "11df2b5def4a8187af9ab440d32f8f8e5233df75",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "fb8c4d3fdb0c9288d514b9f70c4a707a7d8d4b53",
+      "cleanCommit": "fb8c4d3fdb0c9288d514b9f70c4a707a7d8d4b53",
+      "mark": ":22",
+      "importedCommit": "0dc119846d07fbf20a8f021a0b283abec3833c56",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "bdcb1a8fb6e510b2cbaf0ec06a6d7a7f2b7a6f76",
+      "cleanCommit": "bdcb1a8fb6e510b2cbaf0ec06a6d7a7f2b7a6f76",
+      "mark": ":25",
+      "importedCommit": "4e7c5fbbc6a5effec2a6447e5f53aad071600ad1",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "fed88b526e8c3a0126cc85b9910942e05a1313a0",
+      "cleanCommit": "fed88b526e8c3a0126cc85b9910942e05a1313a0",
+      "mark": ":27",
+      "importedCommit": "fa33d2d599b52f93d6021c72c09c2aeb6a110e6b",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "6e14ec72dfdc4cb903e0d86001da68914015c674",
+      "cleanCommit": "6e14ec72dfdc4cb903e0d86001da68914015c674",
+      "mark": ":29",
+      "importedCommit": "0c3f6c53c3393c9a24f813cc3d6c6dd29302e08f",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "76bcd9dc19c6ed9c494a2f5587cf3b6eb85caf45",
+      "cleanCommit": "76bcd9dc19c6ed9c494a2f5587cf3b6eb85caf45",
+      "mark": ":36",
+      "importedCommit": "db4e0843446bfff6a4121fc94561895cbe183d96",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "4a4fb41133237af462c8a852f9b920d6098073cc",
+      "cleanCommit": "4a4fb41133237af462c8a852f9b920d6098073cc",
+      "mark": ":41",
+      "importedCommit": "af3dfd49c1a10310d88458cee9f8dd6bd063d31e",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "87dbad350fdb14d350e49ea768a284f1269f94ff",
+      "cleanCommit": "87dbad350fdb14d350e49ea768a284f1269f94ff",
+      "mark": ":43",
+      "importedCommit": "78970bf7bbc1f0eaed269011d8102ff11e2c581e",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "860d21760c574f774f071ced911d206794f8b986",
+      "cleanCommit": "860d21760c574f774f071ced911d206794f8b986",
+      "mark": ":45",
+      "importedCommit": "801c9d24f6142f54d56177df99206722f4bce338",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "1c84000d1dc4f47fe64110fd385877f8c8f948fa",
+      "cleanCommit": "1c84000d1dc4f47fe64110fd385877f8c8f948fa",
+      "mark": ":47",
+      "importedCommit": "4bb85837ae1fa27c98726245d87636e223b23a9e",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "f7b9696f1fa1b7ff527a38a7eac627a5c6c49fe2",
+      "cleanCommit": "f7b9696f1fa1b7ff527a38a7eac627a5c6c49fe2",
+      "mark": ":49",
+      "importedCommit": "34f77ca374f64b03123a5cf47620ca8e92b961cd",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "c60707073250419c13cb1ea62b33fcec07f3a7b2",
+      "cleanCommit": "c60707073250419c13cb1ea62b33fcec07f3a7b2",
+      "mark": ":51",
+      "importedCommit": "6b52c4a20e8418aa7118d74b765fb86cba68c4bf",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "255d84fbb001357b9c5ddd3cbc196bce32a76946",
+      "cleanCommit": "255d84fbb001357b9c5ddd3cbc196bce32a76946",
+      "mark": ":53",
+      "importedCommit": "7f56733cb3ed6847bff485ef0c4438004b4ac8ff",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "c434df9c7cc9473aa184c5d613b7e3d1deaef66e",
+      "cleanCommit": "c434df9c7cc9473aa184c5d613b7e3d1deaef66e",
+      "mark": ":55",
+      "importedCommit": "bcd765b681e2dec627440617770362428a7e9a08",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "47b90a5d3772e9af980c582fb1a3742d602d9342",
+      "cleanCommit": "47b90a5d3772e9af980c582fb1a3742d602d9342",
+      "mark": ":58",
+      "importedCommit": "9221649ffcd856860ec392245a11179012b96a7c",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "bfd4f0b62b682d1664a4ad01c1ecdde7150b9536",
+      "cleanCommit": "bfd4f0b62b682d1664a4ad01c1ecdde7150b9536",
+      "mark": ":60",
+      "importedCommit": "c95df7c1efb1fcb3bd1545c9c1b46fed65e01a88",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "cd84c60998cb4be4c71cce3f5a60f56292ac20dd",
+      "cleanCommit": "cd84c60998cb4be4c71cce3f5a60f56292ac20dd",
+      "mark": ":62",
+      "importedCommit": "709b5f8413eb8c4fde855a770aa7b2ad4d54c103",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "213bf40b3668ccc989c8fac3b76ff951b38476c2",
+      "cleanCommit": "213bf40b3668ccc989c8fac3b76ff951b38476c2",
+      "mark": ":64",
+      "importedCommit": "3ebf8653c88e557b87d5ed7b548bc23488a9917b",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "5a751f4c37a5c2b3d6bb2e58b1d15a783924c1c0",
+      "cleanCommit": "5a751f4c37a5c2b3d6bb2e58b1d15a783924c1c0",
+      "mark": ":66",
+      "importedCommit": "fac8e6784d6707aa219d1ef379e8e294e4c9a38d",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "ad5d8b7356bef8cdd40eefce6042c79c6c30db3b",
+      "cleanCommit": "ad5d8b7356bef8cdd40eefce6042c79c6c30db3b",
+      "mark": ":68",
+      "importedCommit": "980df586e8a0db9f84a03ff90518d6cf2a00419f",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "f3aaf9a30a4c5d38fb931c8df993daede15a0ab4",
+      "cleanCommit": "f3aaf9a30a4c5d38fb931c8df993daede15a0ab4",
+      "mark": ":70",
+      "importedCommit": "80c3262a1f6a95a552cd0675579e27915bb29ade",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "e216be031232b2a8ca6ca0c0f0f711247c887827",
+      "cleanCommit": "e216be031232b2a8ca6ca0c0f0f711247c887827",
+      "mark": ":72",
+      "importedCommit": "3f08f0c1acfb1f5e878648d409da3258bd1a7e8d",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "46a43d96d7c8edcf8f0da52f7e611509f195d0ae",
+      "cleanCommit": "46a43d96d7c8edcf8f0da52f7e611509f195d0ae",
+      "mark": ":75",
+      "importedCommit": "c8271e3bd619bfae014f845536e567ed7084d46a",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "6a7d2eec0b59e6a5299507a3a7f6452b1a892c67",
+      "cleanCommit": "6a7d2eec0b59e6a5299507a3a7f6452b1a892c67",
+      "mark": ":77",
+      "importedCommit": "a35a7074f2bd9c5b3be4528695fd16f202de172d",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "4b60c2628db46c55250b9e5e871f1e6bc4240804",
+      "cleanCommit": "4b60c2628db46c55250b9e5e871f1e6bc4240804",
+      "mark": ":79",
+      "importedCommit": "4ad4531cc233ac7db72bd9abff72a2b92472d4c0",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "1598cc7e1f8c9d11444138de2d366c6794afa22a",
+      "cleanCommit": "1598cc7e1f8c9d11444138de2d366c6794afa22a",
+      "mark": ":83",
+      "importedCommit": "f21b2d1f8a6fee8aa8e454f7a2db25d64a77722c",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "f775bcfe519e7e71883c560f59096161ba52c699",
+      "cleanCommit": "f775bcfe519e7e71883c560f59096161ba52c699",
+      "mark": ":88",
+      "importedCommit": "4ef4c7a4a5cd3ab0e1bbfed071fe2a58136194d4",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "c27b9ae0cf1070e9231f21fd8112b422978f6910",
+      "cleanCommit": "c27b9ae0cf1070e9231f21fd8112b422978f6910",
+      "mark": ":90",
+      "importedCommit": "802680a421c1265215e9325e8f75f324a41af552",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "061b78fcf1ff4e0ec5c110f14d68cc3c2c8f2daf",
+      "cleanCommit": "061b78fcf1ff4e0ec5c110f14d68cc3c2c8f2daf",
+      "mark": ":92",
+      "importedCommit": "ae162b96fef5dfbb1d53e63b23456c63a61fbdd2",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "48ebc3076576b5377f09d45a946a945a64338dc8",
+      "cleanCommit": "48ebc3076576b5377f09d45a946a945a64338dc8",
+      "mark": ":94",
+      "importedCommit": "42af48f61a5b4b12329f55b743237b940e179ad5",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "c7db4fd12faced3e65c6c98ad10e2fab91f63aa2",
+      "cleanCommit": "c7db4fd12faced3e65c6c98ad10e2fab91f63aa2",
+      "mark": ":96",
+      "importedCommit": "c7d2f8320a8560b97aa50a3a73b13a1a2d1de160",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "770ca40494f020caedddca6e1be521a1d6ca1e06",
+      "cleanCommit": "770ca40494f020caedddca6e1be521a1d6ca1e06",
+      "mark": ":98",
+      "importedCommit": "05a772e3866a957d138339da83b7b798200150e6",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "b3478b2745c4f9a65cdc3e00652c4f580bb4954c",
+      "cleanCommit": "b3478b2745c4f9a65cdc3e00652c4f580bb4954c",
+      "mark": ":100",
+      "importedCommit": "5cebf892e53a74c008dba54162049b5260bfbd28",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "a18a5d0804578baaeed378e20177a2c1d6b08127",
+      "cleanCommit": "a18a5d0804578baaeed378e20177a2c1d6b08127",
+      "mark": ":107",
+      "importedCommit": "4a440e82c8161e7a25f9d6272babeace1458ecb4",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "4587c7d4c3dc9001db11a186cc902d415a68c1ec",
+      "cleanCommit": "4587c7d4c3dc9001db11a186cc902d415a68c1ec",
+      "mark": ":109",
+      "importedCommit": "0f8e1c0df325d878838415a741e3ba441b4cad3b",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "82aa5ac8c0e54dce7768a9d1af06e26c8fc4a5a8",
+      "cleanCommit": "82aa5ac8c0e54dce7768a9d1af06e26c8fc4a5a8",
+      "mark": ":111",
+      "importedCommit": "5c4877cc45f6208da0ff1068b319fc22c0fc5f96",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "348f5aa60df2f246b2a20d692a3880638eeb999f",
+      "cleanCommit": "348f5aa60df2f246b2a20d692a3880638eeb999f",
+      "mark": ":113",
+      "importedCommit": "97aa8cec05321428863a399145b6105579ef4526",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "447ace626c41c129ffa88cf416cd1715613053bc",
+      "cleanCommit": "447ace626c41c129ffa88cf416cd1715613053bc",
+      "mark": ":115",
+      "importedCommit": "6ec2fe74bf566a7a6ef7d4f44c339db0190e0d40",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "ec935820914dfccb959d205b52afffc6908c3581",
+      "cleanCommit": "ec935820914dfccb959d205b52afffc6908c3581",
+      "mark": ":117",
+      "importedCommit": "2d5e47a1f11a9f2f02ed958b31582cf16c9f1ebb",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "de2633623be7967a6557272687df4351742a808c",
+      "cleanCommit": "de2633623be7967a6557272687df4351742a808c",
+      "mark": ":119",
+      "importedCommit": "4a371d9c2839e315019f859e0b4e3979acfcab95",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "2c3c60d9fcf6790e5d400b95d4064acce5cfe995",
+      "cleanCommit": "2c3c60d9fcf6790e5d400b95d4064acce5cfe995",
+      "mark": ":121",
+      "importedCommit": "8036cd163280d58f887dcde3fd65bba0c750bc3a",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "4e086fb2d9a822b6fc3747012e039072216250c1",
+      "cleanCommit": "4e086fb2d9a822b6fc3747012e039072216250c1",
+      "mark": ":123",
+      "importedCommit": "98dda4652301139c79137934864a0a78a918fad5",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "3aa5b09977da43b09eeb527fbc870fd29cce61ae",
+      "cleanCommit": "3aa5b09977da43b09eeb527fbc870fd29cce61ae",
+      "mark": ":125",
+      "importedCommit": "93edb805f008545beb914cb3d3471ded65e0adcd",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "2eac80cf0614e609610b43409d68c125a92e9c72",
+      "cleanCommit": "2eac80cf0614e609610b43409d68c125a92e9c72",
+      "mark": ":130",
+      "importedCommit": "13e47b5df3af3e4099deafd4127cc8123f812250",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "8a4d3367bb2b97cddc9d7f62e2632ff6d9850fc9",
+      "cleanCommit": "8a4d3367bb2b97cddc9d7f62e2632ff6d9850fc9",
+      "mark": ":134",
+      "importedCommit": "5faa8676b3c4a4b1b822af5cb75c015c58516a62",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "e900f3a8c0e799b296964cdd74785029a9fe9340",
+      "cleanCommit": "e900f3a8c0e799b296964cdd74785029a9fe9340",
+      "mark": ":138",
+      "importedCommit": "f2441ace9f19400ff7298fe0b84cfaa635d90dad",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "2cc3e0af05a55f268bc3ab17cb645b0e1296eb1e",
+      "cleanCommit": "2cc3e0af05a55f268bc3ab17cb645b0e1296eb1e",
+      "mark": ":142",
+      "importedCommit": "a792ca1ad0e26934fc0619592045483d151da808",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "cc4e74837f69fc189628f67cd300ddbc3f1456ef",
+      "cleanCommit": "cc4e74837f69fc189628f67cd300ddbc3f1456ef",
+      "mark": ":144",
+      "importedCommit": "5fb04390d1d2ebbecc700faf14918607c45e7448",
+      "authorCommitterHeadersPreserved": true
+    },
+    {
+      "originalCommit": "2b626064207978804483a293130fd52adcbf3580",
+      "cleanCommit": "2bb3c9fa50ff27f774bd1e7f548d85d8521a3af7",
+      "mark": ":147",
+      "importedCommit": "9f1cc863ba0d4dcc6590b48cac241aa2357e631c",
+      "authorCommitterHeadersPreserved": true
+    }
+  ],
+  "humanHeadersVerified": true,
+  "publicationAdmission": "pending installed common full-ref audit and remote enforcement"
+}

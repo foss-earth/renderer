@@ -1,4 +1,6 @@
 import { FreeCamera, Vector3, type Scene, type WebGPUEngine } from "@babylonjs/core";
+interface PresentationErrorDevice { addEventListener(type: string, listener: EventListener): void; removeEventListener(type: string, listener: EventListener): void; }
+interface PresentationErrorEvent extends Event { error?: { message?: string }; }
 
 export function isWebGpuPresentationError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -14,28 +16,28 @@ export function isWebGpuPresentationError(message: string): boolean {
   );
 }
 
-function getGpuDevice(engine: WebGPUEngine): GPUDevice | null {
+function getGpuDevice(engine: WebGPUEngine): PresentationErrorDevice | null {
   if ("device" in engine) {
-    const device = (engine as WebGPUEngine & { device?: GPUDevice }).device;
+    const device = (engine as WebGPUEngine & { device?: PresentationErrorDevice }).device;
     if (device) return device;
   }
-  return (engine as unknown as { _device?: GPUDevice })._device ?? null;
+  return (engine as unknown as { _device?: PresentationErrorDevice })._device ?? null;
 }
 
-/** Dawn/Vulkan often reports swap-chain failures after the submit returns. */
-const PRESENTATION_PROBE_FRAMES = 3;
-const PRESENTATION_ERROR_SETTLE_RAF_COUNT = 4;
-const PRESENTATION_ERROR_SETTLE_MS = 75;
-
-async function waitForPresentationErrors(): Promise<void> {
-  for (let i = 0; i < PRESENTATION_ERROR_SETTLE_RAF_COUNT; i += 1) {
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-  }
-  await new Promise<void>((resolve) => {
-    setTimeout(resolve, PRESENTATION_ERROR_SETTLE_MS);
-  });
+export interface PresentationProbePolicy {
+  frames: number;
+  settleFrameCount: number;
+  settleMs: number;
+}
+export const defaultPresentationProbePolicy: Readonly<PresentationProbePolicy> = Object.freeze({ frames: 3, settleFrameCount: 4, settleMs: 75 });
+export interface WebGpuPresentationProbeOptions {
+  nextFrame(): Promise<void>;
+  delay(ms: number): Promise<void>;
+  policy?: Readonly<PresentationProbePolicy>;
+}
+async function waitForPresentationErrors(options: WebGpuPresentationProbeOptions, policy: Readonly<PresentationProbePolicy>): Promise<void> {
+  for (let i = 0; i < policy.settleFrameCount; i += 1) await options.nextFrame();
+  await options.delay(policy.settleMs);
 }
 
 export interface WebGpuPresentationProbeResult {
@@ -45,7 +47,8 @@ export interface WebGpuPresentationProbeResult {
 
 /**
  * Render several frames on the provided scene to verify the WebGPU swap chain
- * can present. The scene is the real runtime scene — not a throwaway.
+ * can present. Bootstrap supplies its disposable offscreen scene so a failed
+ * probe leaves the runtime canvas available to WebGL.
  */
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -57,10 +60,13 @@ function getErrorMessage(error: unknown): string {
 export async function probeWebGpuPresentation(
   engine: WebGPUEngine,
   scene: Scene,
+  options: WebGpuPresentationProbeOptions,
 ): Promise<WebGpuPresentationProbeResult> {
+  const policy = options.policy ?? defaultPresentationProbePolicy;
+  if (!Number.isInteger(policy.frames) || policy.frames < 1 || !Number.isInteger(policy.settleFrameCount) || policy.settleFrameCount < 0 || !Number.isFinite(policy.settleMs) || policy.settleMs < 0) throw new RangeError("Presentation probe frames must be >= 1; settle frames/ms must be >= 0.");
   const errors: string[] = [];
   const onUncapturedError: EventListener = (event): void => {
-    const gpuError = (event as GPUUncapturedErrorEvent).error;
+    const gpuError = (event as PresentationErrorEvent).error;
     const message = gpuError?.message ?? String(gpuError);
     errors.push(message);
   };
@@ -83,11 +89,11 @@ export async function probeWebGpuPresentation(
       // (e.g. DPR / canvas CSS vs backing store) are a common WebGPU failure mode.
       engine.resize();
 
-      for (let frame = 0; frame < PRESENTATION_PROBE_FRAMES; frame += 1) {
+      for (let frame = 0; frame < policy.frames; frame += 1) {
         engine.beginFrame();
         scene.render();
         engine.endFrame();
-        await waitForPresentationErrors();
+        await waitForPresentationErrors(options, policy);
       }
     } catch (error) {
       errors.push(getErrorMessage(error));

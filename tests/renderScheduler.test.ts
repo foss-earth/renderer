@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createRenderScheduler } from "./renderScheduler";
+import { createRenderScheduler, type RenderFrameCallback } from "../src/renderScheduler.js";
 
 interface FakeRaf {
-  request: (cb: FrameRequestCallback) => number;
+  request: (cb: RenderFrameCallback) => number;
   cancel: (handle: number) => void;
   run: () => void;
   pending: () => number;
@@ -11,7 +11,7 @@ interface FakeRaf {
 
 function createFakeRaf(): FakeRaf {
   let nextId = 1;
-  const queue = new Map<number, FrameRequestCallback>();
+  const queue = new Map<number, RenderFrameCallback>();
   return {
     request(cb) {
       const id = nextId++;
@@ -174,7 +174,7 @@ describe("createRenderScheduler", () => {
   });
 
   it("caps the frame rate at renderer.frameRateCap, waiting out frames that come too soon", () => {
-    const queue: FrameRequestCallback[] = [];
+    const queue: RenderFrameCallback[] = [];
     const tick = vi.fn();
     let interval = 1000 / 30;
     const scheduler = createRenderScheduler({
@@ -193,5 +193,38 @@ describe("createRenderScheduler", () => {
     for (let frame = 6; frame < 10; frame++) display(frame * (1000 / 60));
     expect(tick).toHaveBeenCalledTimes(7);
     scheduler.stop();
+  });
+
+  it("keeps a visible change requested during a tick for the following frame", () => {
+    const raf = createFakeRaf();
+    let ticks = 0;
+    const scheduler = createRenderScheduler({
+      tick: () => { ticks += 1; if (ticks === 1) scheduler.requestRender(); },
+      requestFrame: raf.request,
+      cancelFrame: raf.cancel,
+    });
+    scheduler.requestRender();
+    raf.run();
+    expect(ticks).toBe(1);
+    expect(raf.pending()).toBe(1);
+    raf.run();
+    expect(ticks).toBe(2);
+    expect(raf.pending()).toBe(0);
+  });
+
+  it("notifies once at each activity transition and removes subscribers", () => {
+    const raf = createFakeRaf();
+    const changed = vi.fn();
+    const scheduler = createRenderScheduler({ tick: () => undefined, requestFrame: raf.request, cancelFrame: raf.cancel });
+    const unsubscribe = scheduler.onActiveChange(changed);
+    scheduler.requestRender();
+    scheduler.requestRender();
+    expect(changed.mock.calls).toEqual([[true]]);
+    raf.run();
+    expect(changed.mock.calls).toEqual([[true], [false]]);
+    unsubscribe();
+    scheduler.requestRender();
+    scheduler.stop();
+    expect(changed.mock.calls).toEqual([[true], [false]]);
   });
 });

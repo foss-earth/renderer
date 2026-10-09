@@ -1,0 +1,80 @@
+{
+  "name": "@foss-earth/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Host-supplied render scheduling, readiness and device resource ownership",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./babylon": {
+      "types": "./dist/babylon/index.d.ts",
+      "import": "./dist/babylon/index.js"
+    },
+    "./panel": {
+      "types": "./dist/panel/index.d.ts",
+      "import": "./dist/panel/index.js"
+    },
+    "./settings": {
+      "types": "./dist/settings/catalogue.d.ts",
+      "import": "./dist/settings/catalogue.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "docs",
+    "tests",
+    "fixtures",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "extraction-provenance.json",
+    "tsconfig*.json",
+    "eslint.config.mjs",
+    "vitest.config.ts",
+    "NOTICE",
+    "SOURCE_LINEAGE.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --incremental --tsBuildInfoFile node_modules/.tmp/typecheck.tsbuildinfo",
+    "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
+    "test": "vitest run --maxWorkers=50%",
+    "test:consumer": "node fixtures/consumer.mjs && tsc -p fixtures/tsconfig.json",
+    "check:implementation": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:consumer"
+  },
+  "peerDependencies": {
+    "@babylonjs/core": "8.56.2",
+    "@foss-earth/ui": "0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@babylonjs/core": {
+      "optional": true
+    },
+    "@foss-earth/ui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@babylonjs/core": "8.56.2",
+    "@types/node": "24.12.4",
+    "eslint": "9.39.4",
+    "jsdom": "29.1.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.59.3",
+    "vitest": "4.1.6"
+  }
+}

@@ -18,4 +18,4 @@ native builds implicitly. Do not commit, publish or change remote settings
 without the primary/coordinator gate. Common attribution checks come only from
 the pinned Platform `@foss-earth/ci` public caller; do not implement a checker.
 
-YOU CANNOT HAVE AI AS A CO-AUTHOR, OR YOUR CONTRIBUTIONS WILL BE REJECTED.
+You cannot have AI as a co-author, or your contributions will be rejected.

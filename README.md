@@ -7,7 +7,6 @@ global singleton; the optional Babylon bootstrap creates the selected backend
 and scene when the host invokes it. Engine, sky, image adapters and aircraft visuals use the
 same host scheduler through these contracts.
 
-YOU CANNOT HAVE AI AS A CO-AUTHOR, OR YOUR CONTRIBUTIONS WILL BE REJECTED.
 
 ## Public entries
 
@@ -514,3 +513,10 @@ and ES2022-only declaration fixtures are prepared and UNRUN. Existing positive
 scheduler cases and the prior pure/consumer fixture bytes remain preserved.
 Current source has no accepted artifact, app adoption or new check/native
 qualification. Canonical composition and rollback remain primary-owned.
+
+## Project policies
+
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Contributing](CONTRIBUTING.md)
+- [AGPL-3.0 license](LICENSE)
+- [Security](SECURITY.md)

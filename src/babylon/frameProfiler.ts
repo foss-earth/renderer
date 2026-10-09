@@ -35,7 +35,9 @@ export function profileBabylonScene(
   // GPU readings arrive frames late, and on WebGL Babylon times only one frame
   // in every few. The latest reading stands for every frame until the next
   // arrives, so the mean is per frame rather than per reading.
-  const gpu = isWebGpuEngine(engine) ? webGpuPassTimer(engine) : webGlFrameTimer(engine);
+  const gpu: GpuTimer = isWebGpuEngine(engine) ? webGpuPassTimer(engine)
+    : canTimeGpuFrames(engine) ? webGlFrameTimer(engine)
+    : { read: () => 0, dispose() {} };
   const gpuObserver = scene.onAfterRenderObservable.add(() => {
     const milliseconds = gpu.read(profiler.enabled);
     if (milliseconds > 0) profiler.addDuration(gpuSection, milliseconds);

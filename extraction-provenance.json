@@ -282,7 +282,7 @@
         },
         {
           "path": "src/babylon/frameProfiler.ts",
-          "sha256": "75246ad8565c33c399aae5ce09ae88d4a056f9e29ca568da512980d88277f29e"
+          "sha256": "7836ea4b5855699a782768ae3dbb09b512fb71196ca720ea4621957fc6905f43"
         }
       ],
       "transformation": "Preserve pure rolling summaries/window/trace/section hierarchy and Babylon CPU/GPU measurement separately. Require injected monotonic clock in pure profiler; no Babylon/DOM/engine import in core. Babylon measurements preserve owned-vs-borrowed GPU timer behavior; clock-zero section timing and idempotent full observer teardown corrected."
@@ -458,7 +458,7 @@
       "destinations": [
         {
           "path": "tests/pendingImageTexture.test.ts",
-          "sha256": "2601036fd84ffe51231aa17042eacd72ed320f350c13b3c6c2038c453d2bc016"
+          "sha256": "39dbf013037bee96f46048923da1685a5b4ed2256037f5271226ebc5abeeba9f"
         }
       ],
       "transformation": "Current legacy pending decode/body/objectURL and late-disposal/error behavior adapted to injected body retention and realm ports; no hidden decode/GPU accounting qualification."
@@ -1007,7 +1007,7 @@
     },
     {
       "path": "src/babylon/textureTransfers.ts",
-      "sha256": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
+      "sha256": "157c08753b0bf9feec5e4075cec33fd6243d1ebc0ae5081d1bd9e314c750b333",
       "status": "authored extraction/fixture/configuration source; unqualified current increment"
     },
     {
@@ -1117,7 +1117,7 @@
     }
   ],
   "primarySourceSnapshot": {
-    "createdAtUtc": "2026-10-09T18-56-18Z",
+    "createdAtUtc": "2026-10-09T18-57-43Z",
     "status": "source-only; no qualification or artifact seal",
     "authoredFiles": [
       {
@@ -1314,8 +1314,8 @@
       },
       {
         "path": "src/babylon/textureTransfers.ts",
-        "sha256": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
-        "bytes": 11487,
+        "sha256": "157c08753b0bf9feec5e4075cec33fd6243d1ebc0ae5081d1bd9e314c750b333",
+        "bytes": 11535,
         "status": "authored source/scaffold/adapter/fixture; UNRUN"
       },
       {

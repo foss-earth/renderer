@@ -85,7 +85,7 @@ export function createTextureTransferTracker(options: {
           () => { completed(entry); },
           error => { fail(entry, error); },
         );
-      } catch (error) { fail(entry, error); return [error]; }
+      } catch (error) { fail(entry, error); /* Observation failed: retain native work until actual loss. */ }
       return [];
     }
     const gl = (engine as Engine)._gl;

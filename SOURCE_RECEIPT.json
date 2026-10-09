@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "owner": "foss-earth/renderer",
-  "preparedAtUtc": "2026-10-09T18-56-18Z",
+  "preparedAtUtc": "2026-10-09T18-57-43Z",
   "status": "SOURCE-ONLY current bytes; checks/history/installed consumers/artifacts/adoption/admission UNRUN",
   "sourceRevision": "90e23b3ee96f53ec5900afc5991a21fffa58649d",
-  "priorSourceReceipt": "build/source-only/2026-10-09T18-56-18Z/SOURCE_RECEIPT.json.before",
-  "sourceManifestPath": "build/source-only/2026-10-09T18-56-18Z/source-manifest.json",
+  "priorSourceReceipt": "build/source-only/2026-10-09T18-57-43Z/SOURCE_RECEIPT.json.before",
+  "sourceManifestPath": "build/source-only/2026-10-09T18-57-43Z/source-manifest.json",
   "sourceManifestEncoding": "UTF-8 sorted path JSON array, indent2, trailing LF; ignored outputs and receipt excluded",
-  "sourceManifestSha256": "d4214c1364c9943b5eed0611d35c793882c74cb14dd6458313403e34cbf4d71b",
+  "sourceManifestSha256": "0950d8a565b3ad5d55e6542cb2979a25e2d7e1ead20c5ad3c56a2cd289f63be0",
   "sourceFileCount": 99,
   "provenancePath": "extraction-provenance.json",
-  "provenanceSha256": "ab1690bc269608fe50277f1a2bb3f8e7df7746f671d37fe8798b1de1f2b62253",
+  "provenanceSha256": "87062e0ca35f863eaf4704e9cc3e787de55a24dddb6a9e06eb239a32cf8a5f49",
   "publicExports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -111,7 +111,7 @@
     },
     {
       "path": "extraction-provenance.json",
-      "sha256": "ab1690bc269608fe50277f1a2bb3f8e7df7746f671d37fe8798b1de1f2b62253",
+      "sha256": "87062e0ca35f863eaf4704e9cc3e787de55a24dddb6a9e06eb239a32cf8a5f49",
       "bytes": 77597
     },
     {
@@ -236,8 +236,8 @@
     },
     {
       "path": "src/babylon/frameProfiler.ts",
-      "sha256": "75246ad8565c33c399aae5ce09ae88d4a056f9e29ca568da512980d88277f29e",
-      "bytes": 5371
+      "sha256": "7836ea4b5855699a782768ae3dbb09b512fb71196ca720ea4621957fc6905f43",
+      "bytes": 5450
     },
     {
       "path": "src/babylon/imageRegionDevice.ts",
@@ -296,8 +296,8 @@
     },
     {
       "path": "src/babylon/textureTransfers.ts",
-      "sha256": "acd2e6c8a931d6a1aaabedc2abf8160b85f0b04cf57f90b690ccdada9a93b491",
-      "bytes": 11487
+      "sha256": "157c08753b0bf9feec5e4075cec33fd6243d1ebc0ae5081d1bd9e314c750b333",
+      "bytes": 11535
     },
     {
       "path": "src/babylon/textureUploadState.ts",
@@ -451,8 +451,8 @@
     },
     {
       "path": "tests/pendingImageTexture.test.ts",
-      "sha256": "2601036fd84ffe51231aa17042eacd72ed320f350c13b3c6c2038c453d2bc016",
-      "bytes": 2730
+      "sha256": "39dbf013037bee96f46048923da1685a5b4ed2256037f5271226ebc5abeeba9f",
+      "bytes": 2700
     },
     {
       "path": "tests/presentationCandidates.test.ts",

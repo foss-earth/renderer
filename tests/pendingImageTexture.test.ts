@@ -35,8 +35,7 @@ describe("legacy pending image device adapter", () => {
     const h = fixture(() => new Promise(resolve => { arrived = resolve; }));
     await Promise.resolve(); state.disposed?.();
     const release = vi.fn(); arrived({ blob: new Blob(["pixels"]), release });
-    await Promise.resolve(); await Promise.resolve();
-    expect(release).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(release).toHaveBeenCalledOnce());
     expect(h.createObjectURL).not.toHaveBeenCalled();
     expect(h.onError).not.toHaveBeenCalled();
   });

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "Source preparation only; changed export and fixtures are unrun and unqualified",
+  "source": {
+    "repository": "https://github.com/foss-earth/foss-earth.github.io.git",
+    "revision": "406e71e7c03317115a7c056548d45926c7d790be",
+    "path": "vite/babylonShaderChunks.ts",
+    "sha256": "e34ac62f64e69826cbda439dd0268dddcab35d645c6039f765f3b2076942d99d",
+    "testsPath": "vite/babylonShaderChunks.test.ts",
+    "testsSha256": "48ca22086ae16d371cc38474dff15da3cc8a271deae87a9ba504c1d16e0d465e"
+  },
+  "rendererQualifiedBase": "ee8954c36626453a7454538d6313024385f4de68",
+  "transformation": "Retain shader group names, regexes, plugin name and Vite config hook; move to optional public Node entry with emitted .js import. Replace application-specific performance prose with portable contract documentation. Retain classification fixture and add causal public emitted-module, declaration and actual production bundle fixtures.",
+  "versions": { "vite": "8.3.4", "babylon": "8.56.2" },
+  "license": "AGPL-3.0-only",
+  "publication": "Coordinator-reviewed exact source and artifact release pending; repository identity and source revision are provenance, not a hosted-publication or registry claim"
+}

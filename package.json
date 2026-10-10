@@ -39,6 +39,10 @@
     "./diagnostics": {
       "types": "./dist/babylon/diagnostics/index.d.ts",
       "import": "./dist/babylon/diagnostics/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite/index.d.ts",
+      "import": "./dist/vite/index.js"
     }
   },
   "files": [
@@ -71,7 +75,10 @@
     "typecheck": "tsc -p tsconfig.json --incremental --tsBuildInfoFile node_modules/.tmp/typecheck.tsbuildinfo",
     "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
     "test": "vitest run --maxWorkers=50%",
-    "test:consumer": "node fixtures/consumer.mjs && tsc -p fixtures/tsconfig.json && tsc -p fixtures/tsconfig.public.json",
+    "test:consumer": "node fixtures/consumer.mjs && tsc -p fixtures/tsconfig.json && tsc -p fixtures/tsconfig.public.json && npm run test:vite:node && npm run test:vite:types",
+    "test:vite:node": "node fixtures/vite/check-node-import.mjs",
+    "test:vite:types": "tsc -p fixtures/vite/tsconfig.public.json",
+    "test:vite:graph": "node fixtures/vite/check-built-graph.mjs",
     "check:implementation": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:consumer",
     "check:conformance": "node node_modules/@foss-earth/ci/bin/conformance.mjs --consumer . --trusted-release .attribution-release.json --output-root build/common-conformance",
     "check:attribution": "node node_modules/@foss-earth/ci/bin/attribution.mjs --repo . --refs-file build/repository-split/intended-publication-refs.json",
@@ -79,13 +86,17 @@
   },
   "peerDependencies": {
     "@babylonjs/core": "8.56.2",
-    "@foss-earth/ui": "0.1.0"
+    "@foss-earth/ui": "0.1.0",
+    "vite": "8.3.4"
   },
   "peerDependenciesMeta": {
     "@babylonjs/core": {
       "optional": true
     },
     "@foss-earth/ui": {
+      "optional": true
+    },
+    "vite": {
       "optional": true
     }
   },
@@ -98,6 +109,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
     "vitest": "4.1.6",
-    "@foss-earth/ui": "0.1.0"
+    "@foss-earth/ui": "0.1.0",
+    "vite": "8.3.4"
   }
 }

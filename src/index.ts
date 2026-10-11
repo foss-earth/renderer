@@ -1,4 +1,6 @@
 export { createRenderScheduler } from "./renderScheduler.js";
+export * from "./borrowedFrameClosure.js";
+export * from "./featureFramePreparation.js";
 export type { RenderScheduler, WorkRenderScheduler, RenderSchedulerOptions, RenderFrameCallback } from "./renderScheduler.js";
 export { checkUntilSettled, defaultReadinessPolicy } from "./readiness.js";
 export type { ReadinessPolicy, ReadinessTimers } from "./readiness.js";

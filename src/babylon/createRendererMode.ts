@@ -38,8 +38,9 @@ const SAFE_WEBGPU_OPTIONS: WebGpuEngineOptions = {
   adaptToDeviceRatio: false,
 };
 
-function createWebGlEngine(canvas: HTMLCanvasElement, antialias: boolean): Engine {
-  const engine = new Engine(canvas, antialias, WEBGL_ENGINE_OPTIONS, true);
+function createWebGlEngine(canvas: HTMLCanvasElement, antialias: boolean, preferWebGl1 = false): Engine {
+  const options = preferWebGl1 ? { ...WEBGL_ENGINE_OPTIONS, disableWebGL2Support: true } : WEBGL_ENGINE_OPTIONS;
+  const engine = new Engine(canvas, antialias, options, true);
   // A globe and a near camera share one depth buffer. Conventional depth
   // collapses distinct distant surfaces into the same value; reversing it
   // keeps their separation without another pass or fragment-depth shader.
@@ -272,8 +273,12 @@ export async function bootstrapRenderer(
   }
 
   if (force === "webgl2" || force === "webgl") {
-    const engine = createWebGlEngine(canvas, antialias);
+    const engine = createWebGlEngine(canvas, antialias, force === "webgl");
     const mode = actualWebGLMode(engine);
+    if (force === "webgl2" && mode !== "webgl2") {
+      engine.dispose();
+      throw new Error("Forced WebGL2 is unavailable on this canvas");
+    }
     persistWorkingRenderer(mode, host);
     return {
       renderer: {
@@ -291,7 +296,7 @@ export async function bootstrapRenderer(
   try { persisted = host.readPreference(); } catch { /* use normal detection if storage is unavailable */ }
   if (persisted === "webgl2" || persisted === "webgl") {
     host.report?.("info", `[renderer] Using persisted client renderer preference: ${persisted}`);
-    const engine = createWebGlEngine(canvas, antialias);
+    const engine = createWebGlEngine(canvas, antialias, persisted === "webgl");
     const mode = actualWebGLMode(engine);
     persistWorkingRenderer(mode, host);
     return {

@@ -14,6 +14,8 @@ const mockState = vi.hoisted(() => ({
   webGpuSceneDispose: vi.fn(),
   webGpuCtor: vi.fn(),
   webGlCtor: vi.fn(),
+  webGlDispose: vi.fn(),
+  webGl2Available: true,
   probeOk: true,
   probeErrors: [] as string[],
   probeCalls: [] as unknown[],
@@ -43,8 +45,11 @@ vi.mock("@babylonjs/core", () => {
   class MockEngine {
     webGLVersion = 2;
     useReverseDepthBuffer = false;
+    dispose = mockState.webGlDispose;
 
     constructor(canvas: HTMLCanvasElement, ...args: unknown[]) {
+      const options = args[1] as { disableWebGL2Support?: boolean };
+      this.webGLVersion = options?.disableWebGL2Support || !mockState.webGl2Available ? 1 : 2;
       mockState.webGlCtor(canvas, ...args);
     }
   }
@@ -122,6 +127,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   _lsStore.clear();
   mockState.isSupportedAsync = true;
+  mockState.webGl2Available = true;
   mockState.probeOk = true;
   mockState.probeErrors = [];
   mockState.probeCalls = [];
@@ -249,6 +255,52 @@ describe("bootstrapGlobeRenderer", () => {
     const renderer = await createRendererMode(document.createElement("canvas"), { host: createBrowserRendererHost(), force: "webgl2" });
     expect(renderer.mode).toBe("webgl2");
     expect(mockState.webGpuSceneDispose).toHaveBeenCalledOnce();
+  });
+
+  it("forces a genuine WebGL1 context even when WebGL2 is available", async () => {
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const canvas = document.createElement("canvas");
+    const result = await bootstrapRenderer(canvas, { host: createBrowserRendererHost(), force: "webgl" });
+    expect(result.renderer).toMatchObject({ requested: "webgl", mode: "webgl" });
+    expect(mockState.webGlCtor).toHaveBeenCalledWith(canvas, true, expect.objectContaining({ disableWebGL2Support: true }), true);
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgl");
+    expect(mockState.webGpuInitAsync).not.toHaveBeenCalled();
+  });
+
+  it("honors a saved WebGL1 preference without probing WebGPU", async () => {
+    window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgl");
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const canvas = document.createElement("canvas");
+    const result = await bootstrapRenderer(canvas, { host: createBrowserRendererHost() });
+    expect(result.renderer).toMatchObject({ requested: "auto", mode: "webgl", diagnostics: { fromPersistedPreference: true } });
+    expect(mockState.webGlCtor).toHaveBeenCalledWith(canvas, true, expect.objectContaining({ disableWebGL2Support: true }), true);
+    expect(mockState.webGpuInitAsync).not.toHaveBeenCalled();
+  });
+
+  it("keeps WebGL2 eligible for automatic fallback", async () => {
+    mockState.probeOk = false;
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const result = await bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost() });
+    expect(result.renderer.mode).toBe("webgl2");
+    expect(mockState.webGlCtor.mock.calls.every(call => !(call[2] as { disableWebGL2Support?: boolean }).disableWebGL2Support)).toBe(true);
+  });
+
+  it("rejects unavailable forced WebGL2 and disposes the unreturned engine", async () => {
+    mockState.webGl2Available = false;
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    await expect(bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost(), force: "webgl2" })).rejects.toThrow("Forced WebGL2 is unavailable");
+    expect(mockState.webGlDispose).toHaveBeenCalledOnce();
+    expect(mockState.sceneDepthModes).toEqual([]);
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
+  });
+
+  it("retains a working WebGL1 automatic fallback on a WebGL1-only device", async () => {
+    mockState.webGl2Available = false;
+    mockState.probeOk = false;
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const result = await bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost() });
+    expect(result.renderer).toMatchObject({ requested: "auto", mode: "webgl" });
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgl");
   });
 
 });

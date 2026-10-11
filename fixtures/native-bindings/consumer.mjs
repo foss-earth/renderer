@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import * as core from "@foss-earth/renderer";
+import * as browser from "@foss-earth/renderer/browser";
+import * as native from "@foss-earth/renderer/babylon";
+assert.equal(typeof globalThis.document, "undefined");
+assert.equal(typeof globalThis.window, "undefined");
+for (const name of ["createBorrowedFrameClosure", "createFeatureFramePreparation", "createResourceFrameWork", "attemptNativeCleanup"]) assert.equal(typeof core[name], "function", name);
+assert.equal(typeof browser, "object");
+for (const name of ["createNativeImageResources", "whenBorrowedDeviceSettled", "createTextureTransferTracker", "createImageTextureUploader"]) assert.equal(typeof native[name], "function", name);
+console.log("Renderer core/browser/native public imports constructed no device or scheduler.");

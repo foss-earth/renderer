@@ -12,13 +12,15 @@ export type { PresentationCandidates } from "./presentationCandidates.js";
 export { createBabylonRendererLifecycle } from "./rendererLifecycle.js";
 export type { BabylonRendererLifecycleOptions, BabylonRendererLifecycle, RendererPlatformPort, RendererSettingsPort } from "./rendererLifecycle.js";
 export { createImageTextureUploader, isBorrowedWebGpuEngine } from "./imageTextureUpload.js";
+export type { SettledImageTextureUploader } from "./imageUploadTypes.js";
+export * from "./nativeImageResources.js";
 export { createWebGlImageTextureUploader } from "./imageTextureUploadWebGl.js";
 export type { UploadedImageTexture, ImageUploadRequest, ImageUploadLimits, ImageUploadStats, ImageUploadCompletionFailure, ImageTextureUploader, ImageTextureUploaderOptions, UploadCanvas, UploadTicket } from "./imageUploadTypes.js";
 export { createPendingImageTexture, type PendingImageBody } from "./pendingImageTexture.js";
 export { createTextureDevicePorts } from "./textureDevice.js";
 export type { TextureDevicePorts, RawTextureRequest, RawTextureBatchRegion, RawTextureBatchRequest, PreparedRawTextureBatch, RawTextureBatchDevicePorts } from "./textureDevice.js";
 export { createTextureTransferTracker } from "./textureTransfers.js";
-export type { TextureTransferTracker, CompletionTextureTransferTracker } from "./textureTransfers.js";
+export type { TextureTransferTracker, CompletionTextureTransferTracker, SettledTextureTransferTracker } from "./textureTransfers.js";
 export type { TextureTransferOutcome, TextureTransferRetirement, TextureTransferAdmission, TryAdmitTextureTransfer } from "../textureTransferTypes.js";
 export { createImageRegionDevicePorts } from "./imageRegionDevice.js";
 export type { ImageRegionDevicePorts, ImageRegionTextureRequest } from "./imageRegionDevice.js";
@@ -28,3 +30,5 @@ export type { FrameProfileSession, FrameProfileSessionOptions, GpuTimingStatus }
 export { createCanvasTextureDevicePorts } from "./canvasTextureDevice.js";
 export type { CanvasTextureDevicePorts, CanvasTextureRequest } from "./canvasTextureDevice.js";
 export { disposeTextureResource, protectTextureDisposal } from "./textureDisposal.js";
+
+export { whenBorrowedDeviceSettled } from "./nativeDeviceSettlement.js";

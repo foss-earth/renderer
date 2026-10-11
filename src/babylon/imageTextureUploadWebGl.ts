@@ -1,10 +1,10 @@
 /** WebGL1/2 row uploads; encoded sRGB, NPOT and fences retain source behavior. */
 import { BaseTexture, Constants, type Engine, type InternalTexture } from "@babylonjs/core";
-import { textureMipCount, textureRgbaBytes, validateUploadLimits, validateUploadRequest, type ImageTextureUploader, type ImageTextureUploaderOptions, type ImageUploadRequest, type UploadedImageTexture, type UploadCanvas, type UploadTicket } from "./imageUploadTypes.js";
+import { textureMipCount, textureRgbaBytes, validateUploadLimits, validateUploadRequest, type SettledImageTextureUploader, type ImageTextureUploaderOptions, type ImageUploadRequest, type UploadedImageTexture, type UploadCanvas, type UploadTicket } from "./imageUploadTypes.js";
 import { withTextureUploadState } from "./textureUploadState.js";
 import { disposeTextureResource } from "./textureDisposal.js";
 
-export function createWebGlImageTextureUploader(options: ImageTextureUploaderOptions): ImageTextureUploader {
+export function createWebGlImageTextureUploader(options: ImageTextureUploaderOptions): SettledImageTextureUploader {
   validateUploadLimits(options.limits);
   if (typeof options.invalidatePublishedSource !== "function") throw new Error("Image uploads require the host published-source invalidation port.");
   const { scene } = options;
@@ -16,6 +16,8 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
   let uploadedBytes = 0;
   let lastFrameBytes = 0;
   let deviceLost = false;
+  const retirementErrors: unknown[] = [];
+  const waiters = new Set<{ resolve(): void; reject(error: unknown): void }>();
   let staging: UploadCanvas | null = null;
   let stagingTickets: UploadTicket[] = [];
   let context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null = null;
@@ -86,6 +88,12 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
   // They remain cancellable until ownership actually transfers to the caller.
   const pendingJobs = new Set<Job>();
   const flights: { sync: WebGLSync | null; bytes: number; tickets: UploadTicket[] }[] = [];
+  const notifySettled = (): void => {
+    if (pendingJobs.size || flights.length || pumping || stagingOperations || stagingTickets.length || quarantinedStaging.length) return;
+    const error = retirementErrors.length ? new AggregateError(retirementErrors, "Image upload retirement failed.") : null;
+    for (const waiter of waiters) { if (error) waiter.reject(error); else waiter.resolve(); }
+    waiters.clear();
+  };
   const powerOfTwo = (value: number): boolean => value > 0 && (value & (value - 1)) === 0;
   const allocate = (request: ImageUploadRequest): Texture => {
     const { kind, label } = request;
@@ -166,7 +174,9 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
     const errors: unknown[] = [error];
     try { job.off(); } catch (cleanupError) { errors.push(cleanupError); }
     try { job.texture.dispose(); } catch (cleanupError) { errors.push(cleanupError); }
+    retirementErrors.push(...errors.slice(1));
     job.reject(errorsTo(errors, error instanceof Error ? error.message : String(error)));
+    notifySettled();
   };
   const releaseFlight = (index: number): unknown[] => {
     const [flight] = flights.splice(index, 1);
@@ -174,9 +184,11 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
     const errors: unknown[] = [];
     try { if (flight.sync) gl.deleteSync(flight.sync); } catch (error) { errors.push(error); }
     errors.push(...releaseTickets(flight.tickets));
+    retirementErrors.push(...errors);
     return errors;
   };
   return {
+    whenSettled() { return new Promise<void>((resolve, reject) => { waiters.add({ resolve, reject }); notifySettled(); }); },
     upload(request) {
       if (deviceLost) throw new Error("The image upload device has been lost.");
       validateUploadRequest(request, engine.getCaps().maxTextureSize);
@@ -323,9 +335,9 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
       }
       lastFrameBytes = submitted;
       if (queue.length || flights.some(flight => flight.sync)) try { options.requestRender(); } catch (error) { pumpErrors.push(error); }
-      if (pumpErrors.length) throw errorsTo(pumpErrors, "Image upload pump failed.");
+      if (pumpErrors.length) { retirementErrors.push(...pumpErrors); throw errorsTo(pumpErrors, "Image upload pump failed."); }
       return submitted;
-      } finally { pumping = false; }
+      } finally { pumping = false; notifySettled(); }
     },
     busy: () => pendingJobs.size > 0,
     setLimits(next) { validateUploadLimits(next); limits = next; if (queue.length) options.requestRender(); },
@@ -339,6 +351,8 @@ export function createWebGlImageTextureUploader(options: ImageTextureUploaderOpt
       }
       errors.push(...resetStaging(), ...retryStagingRetirement());
       if (flights.some(flight => flight.sync)) try { options.requestRender(); } catch (error) { errors.push(error); }
+      retirementErrors.push(...errors);
+      notifySettled();
       if (errors.length) throw errorsTo(errors, "Image upload cancellation cleanup failed.");
     },
   };

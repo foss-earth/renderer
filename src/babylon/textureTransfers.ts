@@ -15,12 +15,16 @@ export interface TextureTransferTracker {
 export interface CompletionTextureTransferTracker extends TextureTransferTracker {
   readonly tryAdmit: TryAdmitTextureTransfer;
 }
+export interface SettledTextureTransferTracker extends CompletionTextureTransferTracker {
+  /** Native holds/fences and all release callbacks have completed, not just cancelled. */
+  whenSettled(): Promise<void>;
+}
 /** One supplied broker, backend and host frame, including legacy immediate work. */
 export function createTextureTransferTracker(options: {
   scene: Scene;
   admit(bytes: number, label: string): UploadTicket | null;
   requestRender(): void;
-}): CompletionTextureTransferTracker {
+}): SettledTextureTransferTracker {
   const engine = options.scene.getEngine();
   const gpu = isBorrowedWebGpuEngine(engine);
   type Entry = {
@@ -35,6 +39,15 @@ export function createTextureTransferTracker(options: {
   const fences: Flight[] = [];
   let disposed = false;
   let lost = false;
+  const retirementErrors: unknown[] = [];
+  const waiters = new Set<{ resolve(): void; reject(error: unknown): void }>();
+  let retiring = 0;
+  const notifySettled = (): void => {
+    if (entries.size || retiring) return;
+    const error = retirementErrors.length ? new AggregateError(retirementErrors, "Texture transfer retirement failed.") : null;
+    for (const waiter of waiters) { if (error) waiter.reject(error); else waiter.resolve(); }
+    waiters.clear();
+  };
   const errorFrom = (errors: unknown[], message: string): unknown => errors.length === 1 ? errors[0] : new AggregateError(errors, message);
   const settle = (entry: Entry, outcome: TextureTransferOutcome): void => {
     if (entry.outcome) return;
@@ -43,11 +56,15 @@ export function createTextureTransferTracker(options: {
   const retire = (entry: Entry, status: TextureTransferRetirement["status"], errors: unknown[] = []): unknown[] => {
     if (entry.phase === "retired") return errors;
     entry.phase = "retired"; entries.delete(entry);
+    retiring += 1;
     // Retire bookkeeping before supplied releases can reenter any lifecycle.
     const releaseInput = entry.releaseInput; entry.releaseInput = null;
     try { releaseInput?.(); } catch (error) { errors.push(error); }
     try { entry.ticket.release(); } catch (error) { errors.push(error); }
     entry.resolveRetirement?.(errors.length ? { status, cleanupError: errorFrom(errors, "Texture transfer retirement cleanup failed.") } : { status });
+    retirementErrors.push(...errors);
+    retiring -= 1;
+    notifySettled();
     return errors;
   };
   const completed = (entry: Entry, errors: unknown[] = []): unknown[] => {
@@ -170,6 +187,9 @@ export function createTextureTransferTracker(options: {
   };
   return {
     tryAdmit,
+    whenSettled() {
+      return new Promise<void>((resolve, reject) => { waiters.add({ resolve, reject }); notifySettled(); });
+    },
     transfer(bytes, label, submit) {
       if (disposed || lost) throw new Error("The texture transfer tracker is unavailable.");
       if (!Number.isSafeInteger(bytes) || bytes < 0) throw new Error("Texture transfer bytes must be a nonnegative integer.");

@@ -2,7 +2,7 @@
 import { BaseTexture, Constants, InternalTexture, InternalTextureSource, type Scene, type WebGPUEngine } from "@babylonjs/core";
 import { createWebGlImageTextureUploader } from "./imageTextureUploadWebGl.js";
 import { disposeTextureResource } from "./textureDisposal.js";
-import { textureMipCount, textureRgbaBytes, validateUploadLimits, validateUploadRequest, type ImageTextureUploader, type ImageTextureUploaderOptions, type ImageUploadRequest, type ImageUploadCompletionFailure, type UploadedImageTexture, type UploadTicket } from "./imageUploadTypes.js";
+import { textureMipCount, textureRgbaBytes, validateUploadLimits, validateUploadRequest, type SettledImageTextureUploader, type ImageTextureUploaderOptions, type ImageUploadRequest, type ImageUploadCompletionFailure, type UploadedImageTexture, type UploadTicket } from "./imageUploadTypes.js";
 
 /** Babylon's device is borrowed; this adapter never initializes one. */
 interface WebGpuInternals {
@@ -60,7 +60,7 @@ function allocate(scene: Scene, request: ImageUploadRequest) {
     dispose() { if (disposed) return; disposed = true; disposeTextureResource(texture); },
   };
 }
-export function createImageTextureUploader(options: ImageTextureUploaderOptions): ImageTextureUploader {
+export function createImageTextureUploader(options: ImageTextureUploaderOptions): SettledImageTextureUploader {
   validateUploadLimits(options.limits);
   if (typeof options.invalidatePublishedSource !== "function") throw new Error("Image uploads require the host published-source invalidation port.");
   if (!isBorrowedWebGpuEngine(options.scene.getEngine())) return createWebGlImageTextureUploader(options);
@@ -70,16 +70,26 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
   let lastFrameBytes = 0;
   let uploadedBytes = 0;
   let deviceLost = false;
+  let pumping = false, invalidations = 0;
+  const retirementErrors: unknown[] = [];
+  const waiters = new Set<{ resolve(): void; reject(error: unknown): void }>();
   let publishedCompletionFailures = 0;
   let lastPublishedCompletionFailure: ImageUploadCompletionFailure | null = null;
   type Job = { request: ImageUploadRequest; texture: ReturnType<typeof allocate>; layer: number; row: number; state: "pending" | "published" | "failed"; completionFailureReported: boolean; off(): void; resolve(texture: UploadedImageTexture): void; reject(error: unknown): void };
   const queue: Job[] = [];
   const flights = new Set<{ bytes: number; ticket: UploadTicket }>();
+  const notifySettled = (): void => {
+    if (queue.length || flights.size || pumping || invalidations) return;
+    const error = retirementErrors.length ? new AggregateError(retirementErrors, "Image upload retirement failed.") : null;
+    for (const waiter of waiters) { if (error) waiter.reject(error); else waiter.resolve(); }
+    waiters.clear();
+  };
   const finishFlight = (flight: { bytes: number; ticket: UploadTicket }): void => {
     if (!flights.delete(flight)) return;
     outstanding -= flight.bytes;
-    flight.ticket.release();
-    if (queue.length) options.requestRender();
+    try { flight.ticket.release(); } catch (error) { retirementErrors.push(error); }
+    if (queue.length) { try { options.requestRender(); } catch (error) { retirementErrors.push(error); } }
+    notifySettled();
   };
   const fail = (job: Job, error: unknown): void => {
     if (job.state !== "pending") return;
@@ -91,6 +101,7 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
     try { job.texture.dispose(); }
     catch (cleanupError) { failure = new AggregateError([error, cleanupError], error instanceof Error ? error.message : String(error)); }
     job.reject(failure);
+    notifySettled();
   };
   const completionFailed = (job: Job, error: unknown): void => {
     if (job.state === "pending") { fail(job, error); return; }
@@ -109,10 +120,15 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
     };
     try {
       const cleanup = options.invalidatePublishedSource(failure);
-      if (cleanup !== undefined) void Promise.resolve(cleanup).catch(invalidationFailed);
-    } catch (invalidationError) { invalidationFailed(invalidationError); }
+      if (cleanup !== undefined) {
+        invalidations += 1;
+        void Promise.resolve(cleanup).catch(error => { retirementErrors.push(error); invalidationFailed(error); })
+          .finally(() => { invalidations -= 1; notifySettled(); });
+      }
+    } catch (invalidationError) { retirementErrors.push(invalidationError); invalidationFailed(invalidationError); }
   };
   return {
+    whenSettled() { return new Promise<void>((resolve, reject) => { waiters.add({ resolve, reject }); notifySettled(); }); },
     upload(request) {
       if (deviceLost) throw new Error("The image upload device has been lost.");
       validateUploadRequest(request, options.scene.getEngine().getCaps().maxTextureSize);
@@ -126,6 +142,9 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
       });
     },
     pump() {
+      if (pumping) return 0;
+      pumping = true;
+      try {
       let submitted = 0;
       while (queue.length) {
         const job = queue[0];
@@ -176,7 +195,7 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
           const submittedFlight = flight;
           if (deviceLost) { finishFlight(submittedFlight); continue; }
           try {
-            void engine._device.queue.onSubmittedWorkDone().then(() => finishFlight(submittedFlight), error => { finishFlight(submittedFlight); completionFailed(job, error); });
+            void engine._device.queue.onSubmittedWorkDone().then(() => finishFlight(submittedFlight), error => { retirementErrors.push(error); completionFailed(job, error); /* A rejected observation does not prove native retirement. */ });
             // A synchronous completion-hook failure must reject before publishing.
             const index = queue.indexOf(job);
             if (ready && index >= 0 && !job.texture.disposed && !job.request.signal.aborted) {
@@ -189,6 +208,7 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
       lastFrameBytes = submitted;
       if (queue.length && (outstanding === 0 || limits.outstandingBytes - outstanding >= queue[0].request.images[queue[0].layer].width * 4)) options.requestRender();
       return submitted;
+      } finally { pumping = false; notifySettled(); }
     },
     busy: () => queue.length > 0,
     setLimits(next) { validateUploadLimits(next); limits = next; if (queue.length) options.requestRender(); },
@@ -197,6 +217,7 @@ export function createImageTextureUploader(options: ImageTextureUploaderOptions)
       if (cancellation.deviceLost) deviceLost = true;
       for (const job of [...queue]) fail(job, new Error(reason));
       if (deviceLost) for (const flight of [...flights]) finishFlight(flight);
+      notifySettled();
     },
   };
 }

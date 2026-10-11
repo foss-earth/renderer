@@ -49,6 +49,11 @@ export interface ImageTextureUploader {
   /** Pending submitted work retains tickets until completion, unless deviceLost. */
   cancelAll(reason: string, options?: { deviceLost?: boolean }): void;
 }
+/** Additive factory contract; legacy structural uploader doubles remain valid. */
+export interface SettledImageTextureUploader extends ImageTextureUploader {
+  /** Includes submitted native copies and asynchronous host invalidation callbacks. */
+  whenSettled(): Promise<void>;
+}
 export type UploadCanvas = OffscreenCanvas | HTMLCanvasElement;
 export interface ImageTextureUploaderOptions {
   scene: Scene;

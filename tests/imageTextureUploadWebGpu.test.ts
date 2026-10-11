@@ -81,7 +81,13 @@ describe("generic supplied-device GPU uploads", () => {
     await rejected;
     expect(disposal.internals[0].dispose).toHaveBeenCalledOnce();
     expect(h.invalidatePublishedSource).not.toHaveBeenCalled();
-    expect(h.reserved()).toBe(0); expect(h.uploader.stats().publishedCompletionFailures).toBe(0);
+    expect(h.reserved()).toBe(32); expect(h.uploader.stats().publishedCompletionFailures).toBe(0);
+    let retired = false;
+    const proof = h.uploader.whenSettled().finally(() => { retired = true; });
+    const failure = expect(proof).rejects.toThrow("retirement");
+    await Promise.resolve(); expect(retired).toBe(false);
+    h.uploader.cancelAll("Observed device loss", { deviceLost: true });
+    await failure; expect(h.reserved()).toBe(0);
   });
   it("reports a published cube's late completion failure once without disposing caller ownership", async () => {
     const h = harness();
@@ -94,8 +100,11 @@ describe("generic supplied-device GPU uploads", () => {
     expect(h.invalidatePublishedSource).toHaveBeenCalledExactlyOnceWith({ error, label: "fixture", texture });
     expect(h.uploader.stats()).toMatchObject({ publishedCompletionFailures: 1, lastPublishedCompletionFailure: { error, label: "fixture", texture } });
     expect(disposal.internals[0].dispose).not.toHaveBeenCalled();
-    expect(h.reserved()).toBe(16);
+    expect(h.reserved()).toBe(24);
     for (const completion of h.completions.slice(2)) completion.resolve(); await Promise.resolve();
+    expect(h.reserved()).toBe(8); expect(h.release).toHaveBeenCalledTimes(4);
+    h.uploader.cancelAll("Observed device loss", { deviceLost: true });
+    await expect(h.uploader.whenSettled()).rejects.toThrow("retirement");
     expect(h.reserved()).toBe(0); expect(h.release).toHaveBeenCalledTimes(6);
     texture.dispose(); expect(disposal.internals[0].dispose).toHaveBeenCalledOnce();
   });
@@ -108,10 +117,13 @@ describe("generic supplied-device GPU uploads", () => {
     const firstError = new Error("First completion failed"), secondError = new Error("Second completion failed");
     h.completions[0].reject(firstError); await Promise.resolve();
     expect(h.uploader.stats().lastPublishedCompletionFailure).toEqual({ error: firstError, label: "fixture", texture: textures[0], invalidationError });
-    expect(h.reserved()).toBe(4);
+    expect(h.reserved()).toBe(8);
     h.completions[1].reject(secondError); await Promise.resolve();
     expect(h.invalidatePublishedSource).toHaveBeenCalledTimes(2);
     expect(h.uploader.stats()).toMatchObject({ publishedCompletionFailures: 2, lastPublishedCompletionFailure: { error: secondError, texture: textures[1], invalidationError } });
+    expect(h.reserved()).toBe(8); expect(h.release).not.toHaveBeenCalled();
+    h.uploader.cancelAll("Observed device loss", { deviceLost: true });
+    await expect(h.uploader.whenSettled()).rejects.toThrow("retirement");
     expect(h.reserved()).toBe(0); expect(h.release).toHaveBeenCalledTimes(2);
     for (const internal of disposal.internals) expect(internal.dispose).not.toHaveBeenCalled();
     for (const texture of textures) texture.dispose();
@@ -126,7 +138,9 @@ describe("generic supplied-device GPU uploads", () => {
     h.completions[1].reject(secondError); await Promise.resolve();
     rejectFirst(new Error("First host cleanup rejected")); await Promise.resolve();
     expect(h.uploader.stats().lastPublishedCompletionFailure).toEqual({ error: secondError, label: "fixture", texture: textures[1] });
-    expect(h.reserved()).toBe(0); expect(h.invalidatePublishedSource).toHaveBeenCalledTimes(2);
+    expect(h.reserved()).toBe(8); expect(h.invalidatePublishedSource).toHaveBeenCalledTimes(2);
+    h.uploader.cancelAll("Observed device loss", { deviceLost: true });
+    await expect(h.uploader.whenSettled()).rejects.toThrow("retirement"); expect(h.reserved()).toBe(0);
     for (const texture of textures) texture.dispose();
   });
   it("exposes a rejected asynchronous cleanup for the current published failure", async () => {
@@ -136,7 +150,9 @@ describe("generic supplied-device GPU uploads", () => {
     const error = new Error("Native failed after handoff"); h.completions[0].reject(error);
     await Promise.resolve(); await Promise.resolve();
     expect(h.uploader.stats().lastPublishedCompletionFailure).toEqual({ error, label: "fixture", texture, invalidationError });
-    expect(h.reserved()).toBe(0); expect(disposal.internals[0].dispose).not.toHaveBeenCalled(); texture.dispose();
+    expect(h.reserved()).toBe(4); expect(disposal.internals[0].dispose).not.toHaveBeenCalled();
+    h.uploader.cancelAll("Observed device loss", { deviceLost: true });
+    await expect(h.uploader.whenSettled()).rejects.toThrow("retirement"); expect(h.reserved()).toBe(0); texture.dispose();
   });
   it("checks matching cube dimensions before allocating a device resource", () => {
     const h = harness();

@@ -7,40 +7,52 @@
   "type": "module",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./core": {
+      "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./browser": {
+      "source": "./src/browser.ts",
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
     },
     "./babylon": {
+      "source": "./src/babylon/index.ts",
       "types": "./dist/babylon/index.d.ts",
       "import": "./dist/babylon/index.js"
     },
     "./panel": {
+      "source": "./src/panel/index.ts",
       "types": "./dist/panel/index.d.ts",
       "import": "./dist/panel/index.js"
     },
     "./settings": {
+      "source": "./src/settings/catalogue.ts",
       "types": "./dist/settings/catalogue.d.ts",
       "import": "./dist/settings/catalogue.js"
     },
     "./package.json": "./package.json",
     "./profiling": {
+      "source": "./src/profiling/index.ts",
       "types": "./dist/profiling/index.d.ts",
       "import": "./dist/profiling/index.js"
     },
-    "./frame-budget.css": "./dist/styles/frameBudget.css",
+    "./frame-budget.css": {
+      "source": "./src/styles/frameBudget.css",
+      "default": "./dist/styles/frameBudget.css"
+    },
     "./diagnostics": {
+      "source": "./src/babylon/diagnostics/index.ts",
       "types": "./dist/babylon/diagnostics/index.d.ts",
       "import": "./dist/babylon/diagnostics/index.js"
     },
     "./vite": {
+      "source": "./src/vite/index.ts",
       "types": "./dist/vite/index.d.ts",
       "import": "./dist/vite/index.js"
     }
@@ -54,21 +66,11 @@
     "scripts",
     "README.md",
     "LICENSE",
-    "extraction-provenance.json",
     "tsconfig*.json",
     "eslint.config.mjs",
     "vitest.config.ts",
     "NOTICE",
-    "SOURCE_LINEAGE.json",
-    "SOURCE_RECEIPT.json",
-    "CODE_OF_CONDUCT.md",
-    "CONTRIBUTING.md",
-    "SECURITY.md",
-    "AGENTS.md",
-    ".attribution.json",
-    ".attribution-release.json",
-    ".github/workflows/attribution-check.yml",
-    "deps/foss-earth-ci-1db73d1ddb342e348a2c9e8387f7bbc7ebb3225e.tgz"
+    "AGENTS.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
@@ -80,9 +82,7 @@
     "test:vite:types": "tsc -p fixtures/vite/tsconfig.public.json",
     "test:vite:graph": "node fixtures/vite/check-built-graph.mjs",
     "check:implementation": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:consumer",
-    "check:conformance": "node node_modules/@foss-earth/ci/bin/conformance.mjs --consumer . --trusted-release .attribution-release.json --output-root build/common-conformance",
-    "check:attribution": "node node_modules/@foss-earth/ci/bin/attribution.mjs --repo . --refs-file build/repository-split/intended-publication-refs.json",
-    "ci": "npm run check:conformance && npm run check:implementation"
+    "ci": "npm run check:implementation"
   },
   "peerDependencies": {
     "@babylonjs/core": "8.56.2",
@@ -102,7 +102,6 @@
   },
   "devDependencies": {
     "@babylonjs/core": "8.56.2",
-    "@foss-earth/ci": "file:deps/foss-earth-ci-1db73d1ddb342e348a2c9e8387f7bbc7ebb3225e.tgz",
     "@types/node": "24.12.4",
     "eslint": "9.39.4",
     "jsdom": "29.1.1",

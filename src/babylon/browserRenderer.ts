@@ -42,14 +42,118 @@ export function bootstrapBrowserRenderer(canvas: HTMLCanvasElement, options: Ren
   return bootstrapRenderer(canvas, { ...options, host: createBrowserRendererHost(hostOptions) });
 }
 
+const WORLD_RESIZE_SETTLE_MS = 150;
+
 /** Attach/detach environment listeners without owning the host scheduler. */
-export function createBrowserRendererPlatform(options: Pick<BrowserRendererHostOptions, "window" | "document"> = {}): RendererPlatformPort {
+export function createBrowserRendererPlatform(options: Pick<BrowserRendererHostOptions, "window" | "document"> & { canvas?: HTMLElement } = {}): RendererPlatformPort {
   const browserWindow = options.window ?? window;
   const browserDocument = options.document ?? document;
   return {
     devicePixelRatio: () => browserWindow.devicePixelRatio || 1,
     isHidden: () => browserDocument.hidden,
-    onResize(listener) { browserWindow.addEventListener("resize", listener); return () => browserWindow.removeEventListener("resize", listener); },
+    onResize(listener) {
+      const root = browserDocument.documentElement;
+      const canvas = options.canvas ?? null;
+      const deferred = (): boolean => root.dataset.worldResize === "release";
+      let held = false;
+      let swallow = false;
+      let timer = 0;
+      let frame = 0;
+      let locked = false;
+      let committed: { width: number; height: number } | null = null;
+      const remember = (): void => {
+        if (!canvas) return;
+        const box = canvas.getBoundingClientRect();
+        if (box.width > 0 && box.height > 0) committed = { width: box.width, height: box.height };
+      };
+      const unlock = (): void => {
+        if (!locked || !canvas) return;
+        canvas.style.width = "";
+        canvas.style.height = "";
+        locked = false;
+      };
+      // The resize event arrives after the window has already changed shape, so the
+      // buffer stays at the size from the previous settle until this gesture ends.
+      const lock = (): void => {
+        if (locked || !canvas || !committed) return;
+        const box = canvas.getBoundingClientRect();
+        if (Math.abs(box.width - committed.width) < 0.5 && Math.abs(box.height - committed.height) < 0.5) return;
+        canvas.style.width = `${committed.width}px`;
+        canvas.style.height = `${committed.height}px`;
+        locked = true;
+      };
+      const cancelPending = (): void => {
+        if (timer) { browserWindow.clearTimeout(timer); timer = 0; }
+        if (frame) { browserWindow.cancelAnimationFrame(frame); frame = 0; }
+      };
+      const deliver = (): void => { listener(); remember(); };
+      const settle = (): void => {
+        cancelPending();
+        delete root.dataset.worldDrawHeld;
+        unlock();
+        swallow = true;
+        browserWindow.dispatchEvent(new Event("foss-earth-world-draw-commit"));
+        frame = browserWindow.requestAnimationFrame(() => { frame = 0; swallow = false; deliver(); });
+      };
+      const onLive = (): void => {
+        cancelPending();
+        held = false;
+        swallow = false;
+        delete root.dataset.worldDrawHeld;
+        unlock();
+        deliver();
+      };
+      // Window and visual-viewport events mean the browser itself is changing shape.
+      // The canvas observer also follows a split window settling, and that one resize stands.
+      const onBrowserShape = (): void => {
+        if (!deferred()) { onLive(); return; }
+        if (held || swallow) return;
+        root.dataset.worldDrawHeld = "true";
+        lock();
+        cancelPending();
+        timer = browserWindow.setTimeout(() => { timer = 0; settle(); }, WORLD_RESIZE_SETTLE_MS);
+      };
+      const onCanvas = (): void => {
+        if (!deferred()) { onLive(); return; }
+        if (held || swallow || timer || frame) return;
+        swallow = true;
+        frame = browserWindow.requestAnimationFrame(() => { frame = 0; swallow = false; deliver(); });
+      };
+      const onPanelStart = (): void => {
+        if (!deferred()) return;
+        held = true;
+        cancelPending();
+      };
+      const onPanelEnd = (): void => {
+        if (!held) return;
+        held = false;
+        if (!deferred()) return;
+        settle();
+      };
+      const onMode = (): void => { if (!deferred()) onLive(); };
+      browserWindow.addEventListener("resize", onBrowserShape);
+      browserWindow.visualViewport?.addEventListener("resize", onBrowserShape);
+      browserWindow.addEventListener("foss-earth-panel-resize-start", onPanelStart);
+      browserWindow.addEventListener("foss-earth-panel-resize-end", onPanelEnd);
+      const Observer = (browserWindow as Window & { ResizeObserver?: new (callback: () => void) => { observe(target: Element): void; disconnect(): void } }).ResizeObserver;
+      const observer = canvas && typeof Observer === "function" ? new Observer(onCanvas) : null;
+      if (canvas) observer?.observe(canvas);
+      const ModeObserver = (browserWindow as Window & { MutationObserver?: new (callback: () => void) => { observe(target: Node, options: { attributes: boolean; attributeFilter: string[] }): void; disconnect(): void } }).MutationObserver;
+      const modeObserver = typeof ModeObserver === "function" ? new ModeObserver(onMode) : null;
+      modeObserver?.observe(root, { attributes: true, attributeFilter: ["data-world-resize"] });
+      remember();
+      return () => {
+        cancelPending();
+        unlock();
+        delete root.dataset.worldDrawHeld;
+        browserWindow.removeEventListener("resize", onBrowserShape);
+        browserWindow.visualViewport?.removeEventListener("resize", onBrowserShape);
+        browserWindow.removeEventListener("foss-earth-panel-resize-start", onPanelStart);
+        browserWindow.removeEventListener("foss-earth-panel-resize-end", onPanelEnd);
+        observer?.disconnect();
+        modeObserver?.disconnect();
+      };
+    },
     onVisibilityChange(listener) { browserDocument.addEventListener("visibilitychange", listener); return () => browserDocument.removeEventListener("visibilitychange", listener); },
   };
 }

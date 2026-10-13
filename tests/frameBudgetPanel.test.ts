@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Observable, type AbstractEngine, type Scene } from "@babylonjs/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFrameProfiler } from "../src/profiling/frameProfiler.js";
 import { bindFrameProfileSettings, createFrameProfileSession } from "../src/babylon/frameProfileSession.js";
 import { FRAME_PROFILING_IDS, frameProfilingParameters } from "../src/settings/profiling.js";
@@ -18,7 +18,12 @@ function createFrameBudgetPanel(options: Omit<Parameters<typeof createInjectedFr
   return createInjectedFrameBudgetPanel({ ...options, ui: { document, createParameterControl: (settings, id) => createParameterControl(settings, id, document) }, refreshPort: hostRefresh, actions: output });
 }
 
+beforeEach(() => {
+  // jsdom has no 2D canvas; the streamgraphs draw nothing then and keep their legends.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+});
 afterEach(() => {
+  vi.restoreAllMocks();
   document.body.replaceChildren();
   hostListeners.clear(); hostTime = 0; output.copy.mockClear(); output.saveJson.mockClear();
 });
@@ -47,7 +52,7 @@ function setup() {
     }
     session.frame(time);
   };
-  return { session, settings, unbind, frames };
+  return { session, settings, unbind, frames, idle: (ms: number) => { time += ms; } };
 }
 
 describe("frame budget panel", () => {
@@ -79,7 +84,8 @@ describe("frame budget panel", () => {
     const headings = [...panel.element.querySelectorAll("thead th")].map(node => node.textContent);
     expect(headings).toEqual(["Section", "Mean ms", "p95 ms", "p99 ms", "Max ms", "Of frame"]);
     const rows = [...panel.element.querySelectorAll("tbody tr")].map(row => row.querySelector("th")!.textContent);
-    expect(rows).toEqual(["map", "raster tiles"]);
+    // The panel's own summarising is work in the frame too, so it shows.
+    expect(rows).toEqual(["map", "raster tiles", "profiler", "panel"]);
     const save = [...panel.element.querySelectorAll("button")].find(button => button.textContent === "Save trace")!;
     expect(save.hidden).toBe(true);
     settings.set(FRAME_PROFILING_IDS.traceFrames, 100);
@@ -140,6 +146,31 @@ describe("frame budget panel", () => {
     summary.mockClear(); advanceHost(500); expect(summary).not.toHaveBeenCalled();
     interval.mockRestore(); unbind(); session.dispose();
   });
+  it("draws the streamgraphs while measuring, and moves them on a refresh while no frame comes", () => {
+    const { session, settings, unbind, frames, idle } = setup();
+    const panel = createFrameBudgetPanel({ session, settings });
+    document.body.append(panel.element);
+    settings.set(FRAME_PROFILING_IDS.enabled, true);
+    frames(20, 4);
+    advanceHost(500);
+    const charts = [...panel.element.querySelectorAll<HTMLElement>(".foss-earth-streams__chart")];
+    expect(charts.map(chart => chart.dataset.resource)).toEqual(["cpu", "gpu", "vram", "ram", "network"]);
+    const cpu = charts[0];
+    expect(cpu.querySelector("figcaption")!.textContent).toMatch(/^CPU: [\d.]+ ms\/s now, \d+ frames\/s$/);
+    expect(cpu.textContent).toContain("map/raster tiles");
+    expect(charts[3].querySelector("figcaption")!.textContent).toBe("Memory: not available");
+    const samples = session.streams.stream("cpu").ends.length;
+    // The first refresh closes the sample the last frames were in; the next has none.
+    idle(1000); advanceHost(500);
+    idle(1000); advanceHost(500);
+    expect(session.streams.stream("cpu").ends.length).toBe(samples + 2);
+    expect(cpu.querySelector("figcaption")!.textContent).toMatch(/now, 0 frames\/s$/);
+    panel.destroy();
+    expect(panel.element.isConnected).toBe(false);
+    unbind();
+    session.dispose();
+  });
+
   it("sends budget/trace JSON through host output ports", () => {
     const { session, settings, unbind, frames } = setup();
     const panel = createFrameBudgetPanel({ session, settings, traceFileName: "host-trace" }); document.body.append(panel.element);

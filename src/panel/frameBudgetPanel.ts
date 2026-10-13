@@ -1,6 +1,7 @@
 import type { FrameProfileSummary, FrameSectionStats } from "../profiling/frameProfiler.js";
 import type { FrameProfileSession, GpuTimingStatus } from "../profiling/frameProfileSession.js";
 import { FRAME_PROFILING_IDS } from "../profiling/ids.js";
+import { createResourceStreamsView } from "./resourceStreamsView.js";
 import type { SettingsRegistry } from "@foss-earth/ui/settings";
 export interface FrameBudgetControl { element: HTMLElement; update(): void; destroy(): void }
 
@@ -38,6 +39,8 @@ const BYTES_PER_KIB = 1024;
 /** A row's indent per nesting level, and at the edge, in CSS px. */
 const INDENT_PX = 12;
 const EDGE_PX = 4;
+/** The panel's own refresh, timed so its cost shows beside everything else's. */
+const PANEL_SECTION = "profiler/panel";
 
 function ms(value: number): string {
   return value >= 10 ? value.toFixed(1) : value >= 1 ? value.toFixed(2) : value.toFixed(3);
@@ -62,12 +65,14 @@ const GPU_STATUS: Record<GpuTimingStatus | "off", string> = {
 };
 
 /**
- * The frame budget: its profiling controls, then where each frame's time
- * goes, section by section, with the frame interval's mean and percentiles.
- * It is the one home of the `renderer.profiling.*` parameters, so a host
- * shows it once and draws those parameters nowhere else. CPU rows are the
- * page's JavaScript; GPU and background rows run alongside the frame and are
- * never added to it. A measurement not available says so rather than 0.
+ * The frame budget: its profiling controls, streamgraphs of CPU, GPU, GPU
+ * memory, memory and network by owner over the last minute, then where each
+ * frame's time goes, section by section, with the frame interval's mean and
+ * percentiles. It is the one home of the `renderer.profiling.*` parameters,
+ * so a host shows it once and draws those parameters nowhere else. CPU rows
+ * are the page's JavaScript; GPU and background rows run alongside the frame
+ * and are never added to it. A measurement not available says so rather
+ * than 0.
  */
 export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameBudgetPanelHandle {
   const settings = options.settings;
@@ -110,7 +115,8 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
   // A narrow panel scrolls the table, not the page.
   const scroller = make("div", "foss-earth-frame-budget__scroll");
   scroller.append(table);
-  results.append(overview, scroller, readings, notes, actions);
+  const streamsView = createResourceStreamsView({ document, streams: session.streams, seconds: () => session.streams.seconds });
+  results.append(streamsView.element, overview, scroller, readings, notes, actions);
   element.append(controlsRow, status, results);
 
   const row = (section: FrameSectionStats, indent: number): HTMLTableRowElement => {
@@ -142,7 +148,17 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
 
   const refresh = (): void => {
     if (destroyed) return;
+    const started = session.profiler.clock();
+    try { summarise(); } finally { if (session.enabled) session.profiler.add(PANEL_SECTION, started); }
+  };
+  const summarise = (): void => {
     const enabled = session.enabled;
+    if (enabled) {
+      // While the globe is still, no frame closes the streams' sample, so the panel does.
+      session.streams.update(session.profiler.clock());
+      const shape = settings.get(FRAME_PROFILING_IDS.streamShape);
+      streamsView.update(shape === "stacked" ? "stacked" : "stream");
+    }
     const summary = enabled ? session.profiler.summary() : null;
     const trace = session.trace();
     const traceText = trace.capacity > 0
@@ -151,6 +167,8 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
     status.textContent = enabled
       ? `Collected ${summary!.frames} of ${session.profiler.windowFrames} frames; ${traceText}. ${GPU_STATUS[session.gpuStatus()]}.`
       : `Not measuring. ${GPU_STATUS[session.gpuTimed() ? "off" : "unsupported"]}.`;
+    const problem = enabled ? session.streams.problem() : null;
+    if (problem) status.textContent += ` A streamgraph's source failed: ${problem}`;
     save.hidden = trace.frames.length === 0;
     results.hidden = !summary || summary.frames === 0;
     if (!summary || summary.frames === 0) {
@@ -188,6 +206,7 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
   schedule();
   const offSession = session.onChange(schedule);
   const offRefresh = settings.watch(FRAME_PROFILING_IDS.refreshMs, schedule);
+  const offShape = settings.watch(FRAME_PROFILING_IDS.streamShape, schedule);
   const offHostRefresh = options.refreshPort.subscribe(() => {
     if (!session.enabled || !(options.isVisible?.() ?? (element.isConnected && element.closest("details")?.open !== false))) return;
     const at = options.refreshPort.nowMs();
@@ -206,9 +225,11 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
       offHostRefresh();
       offSession();
       offRefresh();
+      offShape();
       offControls();
       copy.removeEventListener("click", onCopy);
       save.removeEventListener("click", onSave);
+      streamsView.destroy();
       for (const control of controls.values()) control.destroy();
       element.remove();
     },

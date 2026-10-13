@@ -12,6 +12,7 @@ import { FRAME_PROFILING_IDS } from "../profiling/ids.js";
 
 const SOURCE = "src/perf/frameProfileSession.ts";
 const PANEL = "src/shell/frameBudgetPanel.ts";
+const STREAMS = "src/profiling/resourceStreams.ts";
 
 export function frameProfilingParameters(home: Omit<ParameterHome, "level">): ParameterSpec[] {
   return [
@@ -74,6 +75,56 @@ export function frameProfilingParameters(home: Omit<ParameterHome, "level">): Pa
       appliesLive: true,
       session: true,
       source: SOURCE,
+    },
+    {
+      id: FRAME_PROFILING_IDS.streamSeconds,
+      label: "Streamgraph history",
+      description: "How much of the recent past the CPU, GPU, memory and network streamgraphs show. Changing it starts them afresh.",
+      unit: "s",
+      kind: "number",
+      bounds: () => ({ min: 10, max: 600 }),
+      scale: "log2",
+      step: 0.25,
+      default: 60,
+      defaultReason: "A minute shows a load, a pan or a scene change from start to finish.",
+      home: { ...home, level: "main" },
+      appliesLive: true,
+      session: true,
+      source: STREAMS,
+    },
+    {
+      id: FRAME_PROFILING_IDS.streamMs,
+      label: "Streamgraph sample",
+      description: "How long each point of the streamgraphs covers. Shorter shows quicker changes and samples memory more often. Changing it starts them afresh.",
+      unit: "ms",
+      kind: "number",
+      bounds: () => ({ min: 50, max: 5000 }),
+      scale: "log2",
+      step: 0.25,
+      default: 250,
+      defaultReason: "Four points a second follows a pan without walking every texture each frame.",
+      home: { ...home, level: "all" },
+      appliesLive: true,
+      session: true,
+      source: STREAMS,
+    },
+    {
+      id: FRAME_PROFILING_IDS.streamShape,
+      label: "Streamgraph shape",
+      description: "Stream centres each graph's layers on a line that follows their total, which shows how each owner changes; stacked starts them from zero, which shows the total.",
+      unit: "none",
+      kind: "choice",
+      choiceControl: "two-position",
+      choices: [
+        { id: "stream", label: "Stream" },
+        { id: "stacked", label: "Stacked" },
+      ],
+      default: "stream",
+      defaultReason: "A streamgraph shows each owner's rise and fall without the others' tilting it.",
+      home: { ...home, level: "main" },
+      appliesLive: true,
+      session: true,
+      source: PANEL,
     },
   ];
 }

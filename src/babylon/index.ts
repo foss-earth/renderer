@@ -27,6 +27,8 @@ export type { ImageRegionDevicePorts, ImageRegionTextureRequest } from "./imageR
 export { profileBabylonScene, canTimeGpuFrames } from "./frameProfiler.js";
 export { createFrameProfileSession, bindFrameProfileSettings } from "./frameProfileSession.js";
 export type { FrameProfileSession, FrameProfileSessionOptions, GpuTimingStatus } from "./frameProfileSession.js";
+export { createGpuMemorySource, textureBytes, texelBytes, ownerFromName } from "./gpuMemorySource.js";
+export type { GpuMemorySourceOptions } from "./gpuMemorySource.js";
 export { createCanvasTextureDevicePorts } from "./canvasTextureDevice.js";
 export type { CanvasTextureDevicePorts, CanvasTextureRequest } from "./canvasTextureDevice.js";
 export { disposeTextureResource, protectTextureDisposal } from "./textureDisposal.js";

@@ -1,5 +1,6 @@
 import { FRAME_PROFILING_IDS } from "./ids.js";
 import type { FrameProfiler, FrameTrace } from "./frameProfiler.js";
+import { createResourceStreams, type ResourceStreams } from "./resourceStreams.js";
 
 /** Structural public settings port; the one host UI registry satisfies it. */
 export interface FrameProfileSettingsPort {
@@ -30,6 +31,12 @@ export interface FrameProfileSession {
    */
   gpuStatus(): GpuTimingStatus;
   trace(): FrameTrace;
+  /**
+   * CPU, GPU, memory and network by owner over time, sampled while measuring
+   * is on. The frame boundary closes samples; hosts register sources for what
+   * the profiler's sections cannot see.
+   */
+  readonly streams: ResourceStreams;
   /** Called when measuring starts or stops, or the window or trace changes size. */
   onChange(listener: () => void): () => void;
   dispose(): void;
@@ -52,9 +59,16 @@ export function createFrameProfileSession(options: FrameProfileSessionOptions): 
   const profiler = options.profiler;
   const gpuSection = options.gpuSection ?? "gpu/globe";
   const listeners = new Set<() => void>();
+  const streams = createResourceStreams({ profiler });
   let stopScene: (() => void) | null = null;
   let disposed = false;
   const notify = (): void => { for (const listener of [...listeners]) listener(); };
+
+  streams.register({
+    sample(sink) {
+      if (!options.canTimeGpuFrames()) sink.unavailable("gpu", "This renderer cannot time the GPU: WebGPU needs the timestamp-query feature, WebGL the disjoint timer query extension.");
+    },
+  });
 
   const setEnabled = (enabled: boolean): void => {
     if (disposed) return;
@@ -64,9 +78,13 @@ export function createFrameProfileSession(options: FrameProfileSessionOptions): 
     if (!enabled && stopScene) {
       const stop = stopScene;
       stopScene = null;
-      try { stop(); } finally { if (changed) notify(); }
+      try { stop(); } finally {
+        streams.setEnabled(false);
+        if (changed) notify();
+      }
       return;
     }
+    streams.setEnabled(enabled);
     if (changed) notify();
   };
 
@@ -84,13 +102,19 @@ export function createFrameProfileSession(options: FrameProfileSessionOptions): 
       profiler.configure(next);
       if (before[0] !== profiler.windowFrames || before[1] !== profiler.traceFrames) notify();
     },
-    frame: at => profiler.frame(at),
+    frame(at) {
+      if (!profiler.enabled) return;
+      const time = at ?? profiler.clock();
+      profiler.frame(time);
+      streams.update(time);
+    },
     gpuTimed: () => options.canTimeGpuFrames(),
     gpuStatus() {
       if (!options.canTimeGpuFrames()) return "unsupported";
       return profiler.summary().sections.some(section => section.section === gpuSection && section.activeFrames > 0) ? "measuring" : "waiting";
     },
     trace: () => profiler.trace(),
+    streams,
     onChange(listener) {
       if (disposed) return () => undefined;
       listeners.add(listener);
@@ -99,7 +123,7 @@ export function createFrameProfileSession(options: FrameProfileSessionOptions): 
     dispose() {
       if (disposed) return;
       try { setEnabled(false); }
-      finally { disposed = true; listeners.clear(); }
+      finally { disposed = true; listeners.clear(); streams.dispose(); }
     },
   };
 }
@@ -124,14 +148,21 @@ export function bindFrameProfileSettings(settings: FrameProfileSettingsPort, ses
     const value = settings.get(id);
     return typeof value === "number" ? value : 0;
   };
+  /** A registry from before the stream parameters has none: the streams keep their defaults. */
+  const optional = (id: string): number => {
+    try { return read(id); } catch { return 0; }
+  };
   const apply = (): void => {
     if (disposed) return;
     session.configure({ windowFrames: read(FRAME_PROFILING_IDS.windowFrames), traceFrames: read(FRAME_PROFILING_IDS.traceFrames) });
+    const sampleMs = optional(FRAME_PROFILING_IDS.streamMs), seconds = optional(FRAME_PROFILING_IDS.streamSeconds);
+    session.streams.configure({ ...(sampleMs > 0 ? { sampleMs } : {}), ...(seconds > 0 ? { seconds } : {}) });
     session.setEnabled(settings.get(FRAME_PROFILING_IDS.enabled) === true);
   };
   try {
     apply();
-    for (const id of [FRAME_PROFILING_IDS.enabled, FRAME_PROFILING_IDS.windowFrames, FRAME_PROFILING_IDS.traceFrames]) stops.push(settings.watch(id, apply));
+    for (const id of [FRAME_PROFILING_IDS.enabled, FRAME_PROFILING_IDS.windowFrames, FRAME_PROFILING_IDS.traceFrames,
+      FRAME_PROFILING_IDS.streamMs, FRAME_PROFILING_IDS.streamSeconds]) stops.push(settings.watch(id, apply));
   } catch (error) {
     try { dispose(); } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], "Frame profile settings startup and cleanup failed.");

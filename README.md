@@ -9,11 +9,11 @@ The pure contracts initialize no device, scene, backend or global singleton. The
 | Export | Contents |
 | --- | --- |
 | `@foss-earth/renderer` and `/core` | Scheduler, readiness and resource ownership, pure selection types and remembered-mode storage functions. No Babylon, React or DOM imports. `/core` is the same module as the root. |
-| `/browser` | `createBrowserRenderScheduler`, with optional frame ports and a browser animation-frame fallback. Creates one core scheduler. |
+| `/browser` | `createBrowserRenderScheduler`, with optional frame ports and a browser animation-frame fallback. Creates one core scheduler. `observeResourceTiming` and `readHeapBytes` feed the network and memory sources. |
 | `/babylon` | Backend and scene bootstrap, presentation probe and candidates, scene readiness, browser environment factories, supplied-runtime lifecycle, texture upload and transfer helpers. Optional peer `@babylonjs/core@8.56.2`. |
 | `/panel` | Renderer panel and frame budget panel, built from a supplied registry, document/input realm and UI-owned factories. |
 | `/settings` | Renderer parameter records and experiment/legacy 360 handoff views. Uses public types from `@foss-earth/ui/settings`. |
-| `/profiling` | Rolling timing summaries and traces, and injected measurement-session lifetime. Also exported by the root. Needs a host monotonic clock. |
+| `/profiling` | Rolling timing summaries and traces, resource streams for the streamgraphs, network and memory sources, and injected measurement-session lifetime. Also exported by the root. Needs a host monotonic clock. |
 | `/frame-budget.css` | Styles for the frame budget table. Generic control and section styles come from [`@foss-earth/ui`](https://github.com/foss-earth/ui). |
 | `/diagnostics` | Mesh inspector, vector drawing and performance metrics over the host scene. Canvas device, clock, memory and feature readings are injected. |
 | `/vite` | Node-only Vite plugin `babylonShaderChunks()` and `BABYLON_SHADER_GROUPS`. See [Babylon shader build support](docs/vite.md). |
@@ -144,9 +144,20 @@ WebGL staging cleanup attempts the width reset, height reset, both dimension rea
 
 `createFrameProfileSession({ profiler, measure, canTimeGpuFrames })` only manages measurement attachment and teardown. The Babylon entry's `createFrameProfileSession({ scene, engine, now })` supplies Babylon phase and GPU measurements, or accepts an existing `profiler`. The host calls `session.frame()` once, before the work in its single rendered frame. No timer, frame queue or second device is created.
 
-`frameProfilingParameters(home)` defines the four `renderer.profiling.*` settings with their IDs, units, bounds, defaults and session-only flags. `bindFrameProfileSettings` takes a structural `get`/`watch` port that the host registry satisfies. Detach it before disposing the session. If a later watch fails during binding, earlier watches are detached. Detaching attempts every acquired watch once, never disposes the session or registry, and stale callbacks cannot reconfigure the session afterwards.
+`frameProfilingParameters(home)` defines the seven `renderer.profiling.*` settings with their IDs, units, bounds, defaults and session-only flags: measuring, the summarised window, the table refresh, the trace, and the streamgraphs' history, sample length and shape. `bindFrameProfileSettings` takes a structural `get`/`watch` port that the host registry satisfies. Detach it before disposing the session. If a later watch fails during binding, earlier watches are detached. Detaching attempts every acquired watch once, never disposes the session or registry, and stale callbacks cannot reconfigure the session afterwards.
 
-`createFrameBudgetPanel` requires `session`, `settings`, `ui: { document, createParameterControl }`, `refreshPort: { nowMs, subscribe }` and `actions: { copy, saveJson, onError? }`. It limits refreshes to the `renderer.profiling.refreshMs` interval using the host's refresh notifications, and does no refresh work while hidden or off. Clipboard and download policy, readings, notes and optional visibility are injected. `fixtures/profiling-host.ts` shows the wiring.
+`createFrameBudgetPanel` requires `session`, `settings`, `ui: { document, createParameterControl }`, `refreshPort: { nowMs, subscribe }` and `actions: { copy, saveJson, onError? }`. It limits refreshes to the `renderer.profiling.refreshMs` interval using the host's refresh notifications, and does no refresh work while hidden or off. Clipboard and download policy, readings, notes and optional visibility are injected. `fixtures/profiling-host.ts` shows the wiring. Its own refreshes are timed as `profiler/panel`, so the profiler's cost shows in the table it draws.
+
+### Streamgraphs
+
+`session.streams` keeps the last `renderer.profiling.streamSeconds` (60 s) of five resources in samples of `renderer.profiling.streamMs` (250 ms): CPU and GPU time in ms per second, GPU memory and main memory in bytes held, and network in bytes received per second. The panel draws each as a streamgraph by owner, with its legend as the text alternative; the pointer shows any moment's figures.
+
+- CPU and GPU come from the frame profiler's sections, drained once per sample: `map/raster tiles` is the map's, `gpu/globe` the globe pass. A parent's time outside the children it names is its `/other`.
+- `createGpuMemorySource` (Babylon entry), registered by the Babylon session, estimates GPU memory from Babylon's textures, mesh buffers and canvas, at most once a second. `gpuMemoryOwner` names owners from Babylon names. Browsers do not report GPU memory.
+- `createMemorySource({ heapBytes })` adds owners that count their own bytes with `track(owner, bytes, { inHeap })`, and the rest of the JavaScript heap where the browser reports one.
+- `createNetworkSource({ observe, owner, metered })` names each request from Resource Timing. Servers that hide sizes from it, as most tile servers do, are counted by the host with `received(owner, bytes)` and listed in `metered`, so nothing counts twice. Requests whose size stays hidden are named in a note, never guessed at.
+
+A resource no source measures is shown as not available, never as zero. Measuring off, nothing is sampled, observed or kept: sources start with measuring and stop with it, and each start begins a fresh history. The sampling is timed as `profiler/streams`.
 
 ## Diagnostics
 

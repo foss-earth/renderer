@@ -25,7 +25,7 @@ describe("injected profiling lifetime", () => {
     const session = createFrameProfileSession({ profiler: createFrameProfiler({ now: () => 0 }), measure: () => () => {}, canTimeGpuFrames: () => false });
     const configure = vi.spyOn(session, "configure");
     const stale: Array<() => void> = [];
-    const stops = [vi.fn(() => { throw new Error("stop failed"); }), vi.fn(), vi.fn()];
+    const stops = [vi.fn(() => { throw new Error("stop failed"); }), vi.fn(), vi.fn(), vi.fn(), vi.fn()];
     const settings = { get: (id: string) => id.endsWith("enabled") ? false : 20, watch(_id: string, listener: () => void) { stale.push(listener); return stops[stale.length - 1]; } };
     const detach = bindFrameProfileSettings(settings, session);
     try {

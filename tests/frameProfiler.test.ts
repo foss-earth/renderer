@@ -1,5 +1,5 @@
 import { Observable, type AbstractEngine, type Scene } from "@babylonjs/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFrameProfiler } from "../src/profiling/frameProfiler.js";
 import { profileBabylonScene } from "../src/babylon/frameProfiler.js";
 
@@ -126,6 +126,30 @@ describe("frame profiler", () => {
     expect(profiler.current("flight")).toBe(6);
     profiler.frame();
     expect(profiler.summary().frames).toBe(1);
+  });
+
+  it("reads no clock while disabled", () => {
+    const now = vi.fn(() => 0);
+    const profiler = createFrameProfiler({ now });
+    profiler.frame(); profiler.add("flight", 0); profiler.addDuration("gpu/globe", 1); profiler.clock();
+    expect(now).not.toHaveBeenCalled();
+  });
+
+  it("hands each section's committed time to drain once, with the frames closed since", () => {
+    const t = manual();
+    t.profiler.frame();
+    t.work("render", 3); t.at(16); t.profiler.frame();
+    t.work("render", 2); t.work("sky", 1); t.at(32); t.profiler.frame();
+    t.work("render", 7);
+    const drained: Record<string, number> = {};
+    expect(t.profiler.drain!((section, ms) => { drained[section] = ms; })).toBe(2);
+    expect(drained).toEqual({ render: 5, sky: 1 });
+    const again = vi.fn();
+    expect(t.profiler.drain!(again)).toBe(0);
+    expect(again).not.toHaveBeenCalled();
+    t.at(48); t.profiler.frame();
+    t.profiler.drain!((section, ms) => { drained[section] = ms; });
+    expect(drained.render).toBe(7);
   });
 
   it("reports the 99th percentile of the frame interval", () => {

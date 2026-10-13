@@ -54,6 +54,13 @@ export interface FrameProfiler {
   readonly traceFrames: number;
   configure(options: { windowFrames?: number; traceFrames?: number }): void;
   reset(): void;
+  /**
+   * Hands every section's time since the previous drain to `into`, once per
+   * section that did work, and returns the frames closed in that time: a time
+   * series alongside the window, for the resource streams. A host's own
+   * profiler may leave it out.
+   */
+  drain?(into: (section: string, milliseconds: number) => void): number;
 }
 
 export interface FrameTimeStats {
@@ -108,6 +115,8 @@ export interface FrameProfileSummary {
 interface SectionTrack {
   values: Float64Array;
   current: number;
+  /** Committed time not yet handed to `drain`. */
+  pending: number;
   /** Frames committed before this section first reported, which it has no values for. */
   bornAtFrame: number;
 }
@@ -149,6 +158,7 @@ export function createFrameProfiler(options: FrameProfilerOptions): FrameProfile
   const tracks = new Map<string, SectionTrack>();
   let intervals = new Float64Array(capacity);
   let committed = 0;
+  let undrainedFrames = 0;
   let lastFrameAt: number | null = null;
   let enabled = options.enabled ?? false;
   const concurrent = new Set(options.concurrent ?? ["gpu", "background"]);
@@ -159,7 +169,7 @@ export function createFrameProfiler(options: FrameProfilerOptions): FrameProfile
   const track = (section: string): SectionTrack => {
     let found = tracks.get(section);
     if (!found) {
-      found = { values: new Float64Array(capacity), current: 0, bornAtFrame: committed };
+      found = { values: new Float64Array(capacity), current: 0, pending: 0, bornAtFrame: committed };
       tracks.set(section, found);
     }
     return found;
@@ -179,6 +189,7 @@ export function createFrameProfiler(options: FrameProfilerOptions): FrameProfile
     tracks.clear();
     intervals = new Float64Array(capacity);
     committed = 0;
+    undrainedFrames = 0;
     lastFrameAt = null;
     tags = {};
     traced = [];
@@ -219,17 +230,20 @@ export function createFrameProfiler(options: FrameProfilerOptions): FrameProfile
     tag(key, value) {
       if (enabled && traceCapacity > 0) tags[key] = value;
     },
-    frame(at = now()) {
+    frame(time) {
       if (!enabled) return;
+      const at = time ?? now();
       if (lastFrameAt !== null) {
         const slot = committed % capacity;
         intervals[slot] = at - lastFrameAt;
         if (traceCapacity > 0) keepTrace(at, at - lastFrameAt);
         for (const entry of tracks.values()) {
           entry.values[slot] = entry.current;
+          entry.pending += entry.current;
           entry.current = 0;
         }
         committed++;
+        undrainedFrames++;
       } else {
         for (const entry of tracks.values()) entry.current = 0;
       }
@@ -313,6 +327,17 @@ export function createFrameProfiler(options: FrameProfilerOptions): FrameProfile
       reset();
     },
     reset,
+    drain(into) {
+      for (const [section, entry] of tracks) {
+        if (entry.pending === 0) continue;
+        const milliseconds = entry.pending;
+        entry.pending = 0;
+        into(section, milliseconds);
+      }
+      const frames = undrainedFrames;
+      undrainedFrames = 0;
+      return frames;
+    },
   };
 }
 

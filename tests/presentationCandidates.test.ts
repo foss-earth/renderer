@@ -15,9 +15,9 @@ function setup() {
   scene.activeCamera = camera;
   // A retained world, and the one mesh a presentation draws.
   for (let index = 0; index < 40; index++) MeshBuilder.CreateBox(`tile-${index}`, { size: 0.1 }, scene).position.x = index * 0.2 - 4;
-  const panorama = MeshBuilder.CreatePlane("panorama", { size: 1 }, scene);
-  panorama.layerMask = 0x0fffffff | PRESENTATION;
-  return { scene, camera, panorama };
+  const sphere = MeshBuilder.CreatePlane("panorama", { size: 1 }, scene);
+  sphere.layerMask = 0x0fffffff | PRESENTATION;
+  return { scene, camera, sphere };
 }
 
 const activeNames = (scene: Scene) => scene.getActiveMeshes().data.slice(0, scene.getActiveMeshes().length).map(mesh => mesh.name).sort();

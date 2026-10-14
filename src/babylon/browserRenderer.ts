@@ -131,6 +131,19 @@ export function createBrowserRendererPlatform(options: Pick<BrowserRendererHostO
         settle();
       };
       const onMode = (): void => { if (!deferred()) onLive(); };
+      // A window moved to a display of another density changes the device
+      // pixel ratio without changing shape, and no resize event says so.
+      let offDensity: (() => void) | null = null;
+      const watchDensity = (): void => {
+        offDensity?.();
+        offDensity = null;
+        if (typeof browserWindow.matchMedia !== "function") return;
+        const query = browserWindow.matchMedia(`(resolution: ${browserWindow.devicePixelRatio || 1}dppx)`);
+        const onDensity = (): void => { watchDensity(); onBrowserShape(); };
+        query.addEventListener("change", onDensity);
+        offDensity = () => query.removeEventListener("change", onDensity);
+      };
+      watchDensity();
       browserWindow.addEventListener("resize", onBrowserShape);
       browserWindow.visualViewport?.addEventListener("resize", onBrowserShape);
       browserWindow.addEventListener("foss-earth-panel-resize-start", onPanelStart);
@@ -152,6 +165,8 @@ export function createBrowserRendererPlatform(options: Pick<BrowserRendererHostO
         browserWindow.removeEventListener("foss-earth-panel-resize-end", onPanelEnd);
         observer?.disconnect();
         modeObserver?.disconnect();
+        offDensity?.();
+        offDensity = null;
       };
     },
     onVisibilityChange(listener) { browserDocument.addEventListener("visibilitychange", listener); return () => browserDocument.removeEventListener("visibilitychange", listener); },

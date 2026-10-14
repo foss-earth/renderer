@@ -12,8 +12,19 @@ function harness() {
     style: { width: "", height: "" },
     getBoundingClientRect: () => ({ width: box.width, height: box.height, top: 0, left: 0, right: box.width, bottom: box.height, x: 0, y: 0, toJSON() { return {}; } }),
   };
+  // One media query per density watched; `change` fires when the ratio leaves it.
+  const queries: { media: string; listeners: Set<() => void> }[] = [];
   const view = {
     devicePixelRatio: 1,
+    matchMedia(media: string) {
+      const query = { media, listeners: new Set<() => void>() };
+      queries.push(query);
+      return {
+        media,
+        addEventListener: (_type: string, fn: () => void) => { query.listeners.add(fn); },
+        removeEventListener: (_type: string, fn: () => void) => { query.listeners.delete(fn); },
+      };
+    },
     document: { documentElement: root, hidden: false },
     addEventListener(type: string, fn: () => void) {
       const set = listeners.get(type) ?? new Set<() => void>();
@@ -48,6 +59,12 @@ function harness() {
       for (const fn of framed) fn();
     },
     pending: () => timers.size,
+    /** The display's density changes; the browser fires `change` on the query that matched before. */
+    setDensity(ratio: number) {
+      view.devicePixelRatio = ratio;
+      for (const query of [...queries]) for (const fn of [...query.listeners]) fn();
+    },
+    watched: () => queries.filter(query => query.listeners.size > 0).map(query => query.media),
   };
 }
 
@@ -93,4 +110,18 @@ it("resizes once when a panel drag ends and ignores shape changes during the dra
   expect(draws).toBe(0);
   flush();
   expect(draws).toBe(1);
+});
+
+it("redraws when the device pixel ratio changes without a change of shape, and watches the new ratio", () => {
+  const { platform, setDensity, watched } = harness();
+  let draws = 0;
+  const stop = platform.onResize(() => { draws += 1; });
+  expect(watched()).toEqual(["(resolution: 1dppx)"]);
+  setDensity(2);
+  expect(draws).toBe(1);
+  expect(watched()).toEqual(["(resolution: 2dppx)"]);
+  setDensity(1);
+  expect(draws).toBe(2);
+  stop();
+  expect(watched()).toEqual([]);
 });

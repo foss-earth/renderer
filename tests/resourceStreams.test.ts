@@ -20,7 +20,7 @@ describe("section owners", () => {
       "render/draw": 6, "render/active meshes": 3, "render/other": 1,
       "map/raster tiles": 4, "map/google tiles": 1, sky: 2,
     });
-    expect(Object.fromEntries(owners.gpu)).toEqual({ globe: 5, panorama: 1 });
+    expect(Object.fromEntries(owners.gpu)).toEqual({ globe: 5, "panorama": 1 });
   });
 
   it("adds a section without its own report up from its children, however deep", () => {

@@ -57,6 +57,7 @@ export interface BabylonRendererLifecycle {
 export function createBabylonRendererLifecycle(options: BabylonRendererLifecycleOptions): BabylonRendererLifecycle {
   const { renderer, scene, scheduler, settings, platform } = options;
   let disposed = false;
+  let deviceLost = false;
   let deviceGeneration = 0;
   const lost = new Set<() => void>();
   const restored = new Set<() => void>();
@@ -97,7 +98,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     stops.push(scheduler.onActiveChange(active => {
       if (disposed) return;
       if (active) updates!.cancelSettle();
-      else if (!platform.isHidden()) updates!.settle();
+      else if (!deviceLost && !platform.isHidden()) updates!.settle();
     }));
     stops.push(settings.watch("renderer.resolutionScale", () => { if (disposed) return; applyResolutionScale(); renderer.engine.resize(); scheduler.requestRender(); }));
     stops.push(settings.watch("renderer.frameRateCap", () => { if (!disposed) scheduler.requestRender(); }));
@@ -107,9 +108,10 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     stops.push(platform.onVisibilityChange(() => { if (!disposed) scheduler.setPaused(platform.isHidden()); }));
     const lostObserver = renderer.engine.onContextLostObservable.add(() => {
       if (disposed) return;
+      deviceLost = true;
       deviceGeneration += 1;
       const failures: unknown[] = [];
-      for (const action of [options.onDeviceLost, () => options.resources?.invalidate(), ...lost]) {
+      for (const action of [() => updates!.cancelSettle(), options.onDeviceLost, () => options.resources?.invalidate(), ...lost]) {
         try { action?.(); } catch (error) { failures.push(error); }
       }
       if (failures.length) throw new AggregateError(failures, "Renderer device-loss cleanup failed.");
@@ -117,6 +119,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     stops.push(() => renderer.engine.onContextLostObservable.remove(lostObserver));
     const restoredObserver = renderer.engine.onContextRestoredObservable.add(() => {
       if (disposed) return;
+      deviceLost = false;
       const failures: unknown[] = [];
       for (const listener of [...restored]) {
         if (disposed) break;
@@ -135,7 +138,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
       onDeviceRestored(listener) { if (disposed) return () => undefined; restored.add(listener); return () => { restored.delete(listener); }; },
       applyResolutionScale,
       renderFrame(prepare, afterRender) {
-        if (disposed) return;
+        if (disposed || deviceLost) return;
         updates!.cancelSettle();
         renderer.engine.beginFrame();
         const failures: unknown[] = [];

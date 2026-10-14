@@ -93,7 +93,16 @@ Failed WebGPU initialization releases its engine, the deprecated engine-only fac
 - A failed startup releases every observer and subscription it acquired and restores the original presentation candidate function. Cleanup attempts every owned stop even if one throws, and detached callbacks do nothing. Settings already applied to the supplied registry or device are host state and are not rolled back.
 - All still-registered restore listeners are attempted independently. Listeners removed by an earlier listener, or by a disposed binding, are not called. One live frame request is attempted separately. Errors are reported in callback order, then the request error.
 - A begun frame ends once. If preparation or render and `endFrame` both fail, both errors are kept in that order. A failed `beginFrame` has no matching `endFrame`, and `afterRender` runs only after successful preparation, render and completion.
-- Device restoration is Babylon's. Hosts rebuild feature resources after its event.
+- WebGPU bootstrap uses a device-owner adapter for Babylon 8.56.2: it awaits
+  replacement-device initialization, rebuilds retained scene and virtual-scene
+  geometry, and then publishes Babylon's restored event. Duplicate losses
+  share one restore; losses of a replacement are handled serially. Disposal
+  prevents late restoration and destroys an unreturned replacement device.
+  Failed restoration is reported through bootstrap diagnostics (or the
+  console) and leaves presentation waiting. Hosts reacquire feature resources
+  after the ordinary restored event. WebGL keeps Babylon's restoration path.
+  These ordering and ownership rules have unit coverage; hardware restoration
+  requires a browser gate on the actual backend.
 
 Resource identity strings describe the host's actual backend and device. The package does not use them to infer WebGPU or WebGL support.
 

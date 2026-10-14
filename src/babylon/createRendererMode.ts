@@ -1,4 +1,5 @@
 import { Engine, Scene, type EngineOptions, WebGPUEngine } from "@babylonjs/core";
+import { RecoverableWebGpuEngine } from "./recoverableWebGpuEngine.js";
 
 import { probeWebGpuPresentation, type WebGpuPresentationProbeOptions } from "./webgpuPresentationProbe.js";
 import type { RendererMode, RendererDiagnostics, RendererSelection as GenericRendererSelection, RendererModeOptions } from "../rendererTypes.js";
@@ -93,8 +94,9 @@ function applyCanvasDimensions(
 async function createWebGpuEngine(
   canvas: HTMLCanvasElement,
   options: WebGpuEngineOptions,
+  host: RendererBootstrapHost,
 ): Promise<WebGPUEngine> {
-  const webGpuEngine = new WebGPUEngine(canvas, {
+  const webGpuEngine = new RecoverableWebGpuEngine(canvas, {
     antialias: options.antialias,
     adaptToDeviceRatio: options.adaptToDeviceRatio,
     useLargeWorldRendering: true,
@@ -102,6 +104,7 @@ async function createWebGpuEngine(
     // lacks it, and it costs nothing until timing is switched on.
     deviceDescriptor: { requiredFeatures: ["timestamp-query"] },
   });
+  if (host.report) webGpuEngine.onRestoreError = error => host.report!("warn", "[renderer] WebGPU device restoration failed.", error);
   try { await webGpuEngine.initAsync(); } catch (error) { webGpuEngine.dispose(); throw error; }
   webGpuEngine.useReverseDepthBuffer = true;
   return webGpuEngine;
@@ -123,7 +126,7 @@ async function probeWebGpuOnOffscreenCanvas(
   let engine: WebGPUEngine | null = null;
   let scene: Scene | null = null;
   try {
-    engine = await createWebGpuEngine(probeCanvas, options);
+    engine = await createWebGpuEngine(probeCanvas, options, host);
     scene = createRendererScene(engine);
     engine.resize();
     return await probeWebGpuPresentation(engine, scene, host.presentation);
@@ -184,7 +187,7 @@ async function initializeWebGpuRenderer(
     const probe = await probeWebGpuOnOffscreenCanvas(canvas, options, host);
 
     if (probe.ok) {
-      const engine = await createWebGpuEngine(canvas, options);
+      const engine = await createWebGpuEngine(canvas, options, host);
       persistWorkingRenderer("webgpu", host);
       return {
         renderer: {

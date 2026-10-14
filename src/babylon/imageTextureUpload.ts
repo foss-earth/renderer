@@ -1,4 +1,4 @@
-/** Generic row uploads extracted from panoramaTextures; supplied scene only. */
+/** Generic row uploads extracted from sphereTextures; supplied scene only. */
 import { BaseTexture, Constants, InternalTexture, InternalTextureSource, type Scene, type WebGPUEngine } from "@babylonjs/core";
 import { createWebGlImageTextureUploader } from "./imageTextureUploadWebGl.js";
 import { disposeTextureResource } from "./textureDisposal.js";

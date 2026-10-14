@@ -108,9 +108,9 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
  */
 export const RENDERER_EXPERIMENT_IDS = {
   all: "renderer.experiments.all",
-  panoramaBookkeeping: "renderer.experiments.panoramaBookkeeping",
+  sphereBookkeeping: "renderer.experiments.panoramaBookkeeping",
   opaqueImmersion: "renderer.experiments.opaqueImmersion",
-  panoramaShaders: "renderer.experiments.panoramaShaders",
+  sphereShaders: "renderer.experiments.panoramaShaders",
   presentationCandidates: "renderer.experiments.presentationCandidates",
 } as const;
 
@@ -131,7 +131,7 @@ export const RENDERER_EXPERIMENT_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/settings/appSettings.ts",
   },
   {
-    id: RENDERER_EXPERIMENT_IDS.panoramaBookkeeping,
+    id: RENDERER_EXPERIMENT_IDS.sphereBookkeeping,
     label: "Panorama draws without test records",
     description: "Stops recording every panorama draw, its camera as text and earlier frames' uniforms, which only the renderer's own checks read; a check turns recording back on. Review candidate 5.",
     unit: "none",
@@ -155,7 +155,7 @@ export const RENDERER_EXPERIMENT_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/engine/babylon/panorama/panoramaRenderer.ts",
   },
   {
-    id: RENDERER_EXPERIMENT_IDS.panoramaShaders,
+    id: RENDERER_EXPERIMENT_IDS.sphereShaders,
     label: "Simpler panorama shaders",
     description: "WebGL only: works out each orb's per-draw constants once on the CPU instead of in every pixel, turns the panorama's view into the image's frame in the vertex shader, and normalizes each ray once or, for a cube, not at all. Review candidate 7.",
     unit: "none",

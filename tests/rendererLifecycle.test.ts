@@ -1,4 +1,4 @@
-import { NullEngine, Scene } from "@babylonjs/core";
+import { Mesh, NullEngine, Scene } from "@babylonjs/core";
 import { createSettingsRegistry } from "@foss-earth/ui/settings";
 import { describe, expect, it, vi } from "vitest";
 import { createBabylonRendererLifecycle } from "../src/babylon/rendererLifecycle.js";
@@ -190,6 +190,38 @@ describe("renderer-only runtime lifecycle", () => {
       lifecycle.renderFrame();
       expect(calls).toHaveLength(5);
     } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+  });
+  it("suppresses presentation while the device is lost and resumes through the existing restored event", () => {
+    const f = fixture();
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgpu" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    const begin = vi.spyOn(f.engine, "beginFrame").mockImplementation(() => {}), end = vi.spyOn(f.engine, "endFrame").mockImplementation(() => {});
+    const render = vi.spyOn(f.scene, "render").mockImplementation(() => {}), prepare = vi.fn();
+    try {
+      f.engine.onContextLostObservable.notifyObservers(f.engine);
+      lifecycle.renderFrame(prepare);
+      expect(begin).not.toHaveBeenCalled(); expect(end).not.toHaveBeenCalled(); expect(render).not.toHaveBeenCalled(); expect(prepare).not.toHaveBeenCalled();
+      f.engine.onContextRestoredObservable.notifyObservers(f.engine);
+      lifecycle.renderFrame(prepare);
+      expect(begin).toHaveBeenCalledOnce(); expect(end).toHaveBeenCalledOnce(); expect(render).toHaveBeenCalledOnce(); expect(prepare).toHaveBeenCalledOnce();
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+  });
+  it("cancels pending shader readiness checks on loss and does not start them while idle on a lost device", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const f = fixture(); f.platform.isHidden = () => false;
+    const pending = new Mesh("pending shader", f.scene), ready = vi.spyOn(pending, "isReady").mockReturnValue(false);
+    vi.spyOn(f.scene, "getActiveMeshes").mockReturnValue({ length: 1, data: [pending] } as never);
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgpu" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      f.activeChanged(false);
+      expect(ready).toHaveBeenCalledOnce();
+      f.engine.onContextLostObservable.notifyObservers(f.engine);
+      f.activeChanged(false);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(ready).toHaveBeenCalledOnce();
+      f.engine.onContextRestoredObservable.notifyObservers(f.engine);
+      f.activeChanged(false);
+      expect(ready).toHaveBeenCalledTimes(2);
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); await vi.advanceTimersByTimeAsync(2); vi.useRealTimers(); }
   });
   it("attempts restore peers and one frame request despite failures, retaining ordered errors", () => {
     const f = fixture();

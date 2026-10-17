@@ -2,7 +2,9 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBrowserRendererHost } from "../src/babylon/browserRenderer.js";
+import type { RendererBootstrapHost } from "../src/babylon/createRendererMode.js";
 import { RENDERER_FALLBACK_RETRY_MS, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_PREFERENCE_STORAGE_KEY, type RendererFallback } from "../src/rendererPreference.js";
+import { SHADER_CHUNKS_ELEMENT_ID } from "../src/shaderChunks.js";
 
 const mockState = vi.hoisted(() => ({
   isSupportedAsync: true,
@@ -419,4 +421,61 @@ describe("bootstrapGlobeRenderer", () => {
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
   });
 
+  describe("preloads Babylon's shaders in the language of the backend it starts", () => {
+    const start = async (options: { force?: "webgpu" | "webgl2" | "webgl"; host?: RendererBootstrapHost } = {}) => {
+      const preloadShaders = vi.fn();
+      const host = { ...options.host ?? createBrowserRendererHost(), preloadShaders };
+      const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+      const { renderer } = await bootstrapRenderer(document.createElement("canvas"), { force: options.force, host });
+      return { mode: renderer.mode, languages: preloadShaders.mock.calls.map(([language]) => language as string) };
+    };
+
+    it("WGSL for WebGPU, and GLSL for a chosen WebGL", async () => {
+      expect(await start()).toEqual({ mode: "webgpu", languages: ["wgsl"] });
+      expect(await start({ force: "webgpu" })).toEqual({ mode: "webgpu", languages: ["wgsl"] });
+      expect(await start({ force: "webgl2" })).toEqual({ mode: "webgl2", languages: ["glsl"] });
+      expect(await start({ force: "webgl" })).toEqual({ mode: "webgl", languages: ["glsl"] });
+    });
+
+    it("GLSL alone where WebGL starts without trying WebGPU", async () => {
+      const host = createBrowserRendererHost();
+      saveFallbackFrom(host);
+      expect(await start({ host })).toEqual({ mode: "webgl2", languages: ["glsl"] });
+    });
+
+    it("GLSL too when WebGPU cannot present, and starts the backend if the preload throws", async () => {
+      mockState.probeOk = false;
+      expect(await start()).toEqual({ mode: "webgl2", languages: ["wgsl", "glsl"] });
+      const host = { ...createBrowserRendererHost(), preloadShaders: () => { throw new Error("no document"); } };
+      const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+      await expect(bootstrapRenderer(document.createElement("canvas"), { force: "webgl2", host })).resolves.toMatchObject({ renderer: { mode: "webgl2" } });
+    });
+  });
+});
+
+describe("the browser host's shader preload", () => {
+  const named = (chunks: Record<string, string>) => {
+    const element = document.createElement("script");
+    element.type = "application/json";
+    element.id = SHADER_CHUNKS_ELEMENT_ID;
+    element.textContent = JSON.stringify(chunks);
+    document.head.append(element);
+  };
+  const preloads = () => [...document.querySelectorAll<HTMLLinkElement>("link[rel=modulepreload]")].map(link => ({ href: link.getAttribute("href"), crossorigin: link.getAttribute("crossorigin") }));
+  beforeEach(() => { document.head.replaceChildren(); });
+
+  it("adds one modulepreload for the chunk a built page names for that language", () => {
+    named({ glsl: "/app/assets/babylon-shaders-glsl-a.js", wgsl: "/app/assets/babylon-shaders-wgsl-b.js" });
+    const host = createBrowserRendererHost();
+    host.preloadShaders!("wgsl");
+    host.preloadShaders!("wgsl");
+    expect(preloads()).toEqual([{ href: "/app/assets/babylon-shaders-wgsl-b.js", crossorigin: "" }]);
+  });
+
+  it("does nothing on a page that names no chunk, as one from the dev server", () => {
+    createBrowserRendererHost().preloadShaders!("glsl");
+    named({ wgsl: "/assets/babylon-shaders-wgsl-b.js" });
+    createBrowserRendererHost().preloadShaders!("glsl");
+    expect(preloads()).toEqual([]);
+  });
 });

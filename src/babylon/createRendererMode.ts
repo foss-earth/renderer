@@ -4,6 +4,7 @@ import { RecoverableWebGpuEngine } from "./recoverableWebGpuEngine.js";
 import { probeWebGpuPresentation, type WebGpuPresentationProbeOptions } from "./webgpuPresentationProbe.js";
 import type { RendererMode, RendererDiagnostics, RendererSelection as GenericRendererSelection, RendererModeOptions } from "../rendererTypes.js";
 import { staleFallbackReason, type RendererFallback } from "../rendererPreference.js";
+import type { ShaderChunkLanguage } from "../shaderChunks.js";
 export type { RendererMode, RendererDiagnostics, RendererModeOptions } from "../rendererTypes.js";
 export type RendererSelection = GenericRendererSelection<Engine | WebGPUEngine>;
 
@@ -28,6 +29,11 @@ export interface RendererBootstrapHost {
    * immersive WebXR sessions only from a WebGL context.
    */
   webGlRequirement?(): Promise<string | null>;
+  /**
+   * Starts fetching Babylon's shaders in the language of the backend being started, which the scene's
+   * materials import when they first compile. A built page loads only one language (docs/vite.md).
+   */
+  preloadShaders?(language: ShaderChunkLanguage): void;
   report?(level: "log" | "info" | "warn", message: string, detail?: unknown): void;
 }
 export interface RendererBootstrapOptions extends RendererModeOptions { host: RendererBootstrapHost; }
@@ -53,7 +59,12 @@ const SAFE_WEBGPU_OPTIONS: WebGpuEngineOptions = {
   adaptToDeviceRatio: false,
 };
 
-function createWebGlEngine(canvas: HTMLCanvasElement, antialias: boolean, preferWebGl1 = false): Engine {
+function preloadShaders(host: RendererBootstrapHost, language: ShaderChunkLanguage): void {
+  try { host.preloadShaders?.(language); } catch { /* only a head start: the materials import what they need */ }
+}
+
+function createWebGlEngine(canvas: HTMLCanvasElement, host: RendererBootstrapHost, antialias: boolean, preferWebGl1 = false): Engine {
+  preloadShaders(host, "glsl");
   const options = preferWebGl1 ? { ...WEBGL_ENGINE_OPTIONS, disableWebGL2Support: true } : WEBGL_ENGINE_OPTIONS;
   const engine = new Engine(canvas, antialias, options, true);
   // A globe and a near camera share one depth buffer. Conventional depth
@@ -166,7 +177,7 @@ function createWebGlSelection(
   fallbackReason?: string,
   diagnostics?: RendererDiagnostics,
 ): RendererSelection {
-  const engine = createWebGlEngine(canvas, antialias);
+  const engine = createWebGlEngine(canvas, host, antialias);
   const mode = actualWebGLMode(engine);
   persistFallback(mode, fallbackReason ?? "WebGPU did not start", host);
   return {
@@ -269,6 +280,7 @@ async function tryWebGpuBootstrap(
       );
     }
 
+    preloadShaders(host, "wgsl");
     return await initializeWebGpuRenderer(canvas, host, requested, diagnostics, antialias);
   } catch (error) {
     const reason = getErrorMessage(error);
@@ -300,7 +312,7 @@ export async function bootstrapRenderer(
   }
 
   if (force === "webgl2" || force === "webgl") {
-    const engine = createWebGlEngine(canvas, antialias, force === "webgl");
+    const engine = createWebGlEngine(canvas, host, antialias, force === "webgl");
     const mode = actualWebGLMode(engine);
     if (force === "webgl2" && mode !== "webgl2") {
       engine.dispose();
@@ -332,7 +344,7 @@ export async function bootstrapRenderer(
   if (requirement) {
     host.report?.("info", `[renderer] Using WebGL2: ${requirement}`);
     // Not persisted: the requirement is read again on every start.
-    const engine = createWebGlEngine(canvas, antialias);
+    const engine = createWebGlEngine(canvas, host, antialias);
     return {
       renderer: { requested: "auto", mode: actualWebGLMode(engine), engine, antialias, devicePixels: true,
         fallbackReason: requirement, diagnostics: { ...getRendererDiagnostics(host), webGlRequired: true } },
@@ -346,7 +358,7 @@ export async function bootstrapRenderer(
     const stale = staleFallbackReason(fallback, { ...diagnostics, userAgent: host.userAgent(), at: host.now() });
     if (stale === null) {
       host.report?.("info", `[renderer] Using WebGL, since WebGPU failed here at ${new Date(fallback.at).toISOString()}: ${fallback.reason}`);
-      const engine = createWebGlEngine(canvas, antialias);
+      const engine = createWebGlEngine(canvas, host, antialias);
       return {
         renderer: { requested: "auto", mode: actualWebGLMode(engine), engine, antialias, devicePixels: true,
           fallbackReason: fallback.reason,

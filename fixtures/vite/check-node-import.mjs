@@ -32,7 +32,7 @@ try {
   const vite = await import("@foss-earth/renderer/vite");
   assert.equal(typeof root.createRenderScheduler, "function");
   assert.equal(vite.babylonShaderChunks().name, "foss-earth-babylon-shader-chunks");
-  assert.equal(vite.BABYLON_SHADER_GROUPS.length, 2);
+  assert.equal(vite.BABYLON_SHADER_GROUPS.length, 3);
   assert.ok(seen.some(url => url.endsWith("/dist/vite/index.js")), "must load the emitted public entry");
   assert.ok(seen.every(url => !url.includes("/renderer/src/") && !/\.tsx?$/.test(url)), "must not borrow TypeScript implementation source");
   // Positive controls prove the resolution guard is active without evaluating a

@@ -1,5 +1,6 @@
 import { readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, type RendererPreferenceStorage } from "../rendererPreference.js";
 import type { RendererMode, RendererModeOptions } from "../rendererTypes.js";
+import { SHADER_CHUNKS_ELEMENT_ID, type ShaderChunkLanguage } from "../shaderChunks.js";
 import { bootstrapRenderer, type RendererBootstrapHost } from "./createRendererMode.js";
 import type { PresentationProbePolicy } from "./webgpuPresentationProbe.js";
 import type { RendererPlatformPort } from "./rendererLifecycle.js";
@@ -38,8 +39,27 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
       policy: options.probePolicy,
     },
     webGlRequirement: () => immersiveVrRequirement(browserWindow),
+    preloadShaders: language => preloadShaderChunk(browserDocument, language),
     report: options.report,
   };
+}
+
+/**
+ * Fetches the page's chunk of Babylon shaders in a language, ahead of the materials that import it. A built
+ * page names its chunks (babylonShaderChunks() in ../vite); a page from the dev server names none.
+ */
+function preloadShaderChunk(browserDocument: Document, language: ShaderChunkLanguage): void {
+  const named = browserDocument.getElementById(SHADER_CHUNKS_ELEMENT_ID)?.textContent;
+  if (!named) return;
+  const href = (JSON.parse(named) as Partial<Record<ShaderChunkLanguage, unknown>>)[language];
+  if (typeof href !== "string" || browserDocument.querySelector(`link[data-shaders="${language}"]`)) return;
+  const link = browserDocument.createElement("link");
+  link.rel = "modulepreload";
+  // As Vite's own preloads, so that the module the materials import is this one.
+  link.crossOrigin = "";
+  link.href = href;
+  link.dataset.shaders = language;
+  (browserDocument.head ?? browserDocument.documentElement).append(link);
 }
 
 const XR_SUPPORT_TIMEOUT_MS = 1500;

@@ -22,7 +22,9 @@ assert.equal(viteVersion, "8.3.4");
 assert.equal(babylonVersion, "8.56.2");
 assert.ok(import.meta.resolve("@foss-earth/renderer/vite").endsWith("/dist/vite/index.js"));
 
-const shaderGroup = id => BABYLON_SHADER_GROUPS.find(group => group.test.test(id))?.name ?? null;
+// Each language's group, by the module paths it takes; a shader that other code imports statically stays with that code.
+const languageGroups = BABYLON_SHADER_GROUPS.filter(group => group.debugName?.startsWith("babylon-shaders-"));
+const shaderGroup = id => languageGroups.find(group => group.test.test(id))?.debugName ?? null;
 const shaderModules = chunks => [...new Set(chunks.flatMap(chunk => Object.keys(chunk.modules).filter(shaderGroup)))].sort();
 const shaderChunks = (chunks, language) => chunks.filter(chunk => Object.keys(chunk.modules).some(id => shaderGroup(id) === language));
 const modulePath = id => {
@@ -156,15 +158,22 @@ for (const [store, values] of Object.entries(baseline.registrations)) {
   }
 }
 assert.deepEqual(grouped.completeRegistrations, baseline.completeRegistrations, "chunk repair must preserve complete actual shader registration keys and text");
-const languages = BABYLON_SHADER_GROUPS.map(group => group.name);
-for (const language of languages) {
+const store = grouped.chunks.filter(chunk => chunk.name === "babylon-shader-store");
+assert.equal(store.length, 1, "the shader store must occupy its own output chunk");
+assert.ok(Object.keys(store[0].modules).every(id => /[\\/]Engines[\\/]shaderStore\.js$/.test(id)), "the shader store chunk must hold the store alone");
+for (const language of languageGroups.map(group => group.debugName)) {
   const before = shaderChunks(baseline.chunks, language);
-  const after = shaderChunks(grouped.chunks, language);
+  const named = grouped.chunks.filter(chunk => chunk.name === language);
   assert.ok(before.length > 1, `${language} baseline must reproduce the repaired fragmentation`);
-  assert.equal(after.length, 1, `${language} must occupy one output chunk`);
-  assert.ok(after[0].fileName.startsWith(language + "-"), `${language} must retain the public group name`);
-  assert.ok(grouped.graph.lazyChunks.includes(after[0].fileName), `${language} must remain reachable through lazy renderer load`);
-  assert.ok(!grouped.graph.initialChunks.includes(after[0].fileName), `${language} must remain absent from initial/phone load`);
+  assert.equal(named.length, 1, `${language} must occupy one output chunk`);
+  assert.ok(named[0].fileName.startsWith(language + "-"), `${language} must retain the public group name`);
+  assert.ok(named[0].imports.includes(store[0].fileName), `${language} must import the store from its own chunk`);
+  // The shaders left out are those that other code imports statically; they stay with that code, not in fragments.
+  for (const chunk of shaderChunks(grouped.chunks, language).filter(chunk => chunk !== named[0])) {
+    assert.ok(Object.keys(chunk.modules).some(id => !shaderGroup(id)), `${language} shaders must not fragment: ${chunk.fileName}`);
+  }
+  assert.ok(grouped.graph.lazyChunks.includes(named[0].fileName), `${language} must remain reachable through lazy renderer load`);
+  assert.ok(!grouped.graph.initialChunks.includes(named[0].fileName), `${language} must remain absent from initial/phone load`);
 }
 const babylonRoots = new Set(grouped.chunks.flatMap(chunk => Object.keys(chunk.modules))
   .filter(id => /[\\/]@babylonjs[\\/]core[\\/]/.test(id))

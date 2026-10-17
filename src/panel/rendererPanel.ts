@@ -1,4 +1,6 @@
 import type { RendererMode, RendererSelection } from "../rendererTypes.js";
+import { getRendererLabel } from "../rendererStartNote.js";
+import { RENDERER_FALLBACK_RETRY_MS } from "../rendererPreference.js";
 import type { SettingsRegistry } from "@foss-earth/ui/settings";
 import type { RendererPanelUiPort, RendererPanelSection } from "./types.js";
 
@@ -29,11 +31,7 @@ export interface RendererPanelHandle {
   destroy(): void;
 }
 
-export function getRendererLabel(mode: RendererMode): string {
-  if (mode === "webgpu") return "WebGPU";
-  if (mode === "webgl2") return "WebGL2";
-  return "WebGL";
-}
+export { getRendererLabel };
 
 function describeRenderer({ mode, requested }: RendererPanelOptions["renderer"]): string {
   if (requested === "auto") return `Running on ${getRendererLabel(mode)}, chosen automatically.`;
@@ -41,13 +39,18 @@ function describeRenderer({ mode, requested }: RendererPanelOptions["renderer"])
   return `Running on ${getRendererLabel(mode)}. ${getRendererLabel(requested)} was chosen but did not start.`;
 }
 
+const day = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+
 function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["renderer"]): string[] {
   if (!diagnostics) return [];
   return [
     `Secure context: ${diagnostics.isSecureContext ? "✓ yes" : "✗ no — WebGPU requires HTTPS"}`,
     `navigator.gpu: ${diagnostics.navigatorGpuPresent ? "✓ present" : "✗ missing"}`,
     diagnostics.isSupportedAsyncResult !== null ? `IsSupportedAsync: ${diagnostics.isSupportedAsyncResult}` : null,
-    fallbackReason ? `Error: ${fallbackReason}` : null,
+    fallbackReason ? `${diagnostics.webGlRequired ? "Reason" : "Error"}: ${fallbackReason}` : null,
+    diagnostics.fallbackSavedAt !== undefined
+      ? `Saved fallback from ${day(diagnostics.fallbackSavedAt)}: WebGPU is tried again from ${day(diagnostics.fallbackSavedAt + RENDERER_FALLBACK_RETRY_MS)}, or sooner if the browser changes.`
+      : null,
   ].filter((line): line is string => line !== null);
 }
 

@@ -7,7 +7,12 @@ export type { ReadinessPolicy, ReadinessTimers } from "./readiness.js";
 export { createRendererResourceLifecycle } from "./resourceLifecycle.js";
 export type { RendererIdentity, RendererGeneration, ResourceDescriptor, RendererResource, RendererResourceLifecycleOptions, RendererResourceLifecycle } from "./resourceLifecycle.js";
 export type { RendererMode, RendererDiagnostics, RendererSelection, RendererModeOptions } from "./rendererTypes.js";
-export { RENDERER_PREFERENCE_STORAGE_KEY, readRendererPreference, saveRendererPreference, clearRendererPreference } from "./rendererPreference.js";
-export type { RendererPreferenceStorage } from "./rendererPreference.js";
+export {
+  RENDERER_PREFERENCE_STORAGE_KEY, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_FALLBACK_RETRY_MS,
+  readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, staleFallbackReason,
+} from "./rendererPreference.js";
+export type { RendererPreferenceStorage, RendererFallback, RendererFallbackFacts } from "./rendererPreference.js";
+export { describeRendererStart, getRendererLabel } from "./rendererStartNote.js";
+export type { RendererStartNote } from "./rendererStartNote.js";
 export * from "./profiling/index.js";
 export type { TextureTransferOutcome, TextureTransferRetirement, TextureTransferAdmission, TryAdmitTextureTransfer } from "./textureTransferTypes.js";

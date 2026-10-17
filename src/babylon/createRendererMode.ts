@@ -3,13 +3,22 @@ import { RecoverableWebGpuEngine } from "./recoverableWebGpuEngine.js";
 
 import { probeWebGpuPresentation, type WebGpuPresentationProbeOptions } from "./webgpuPresentationProbe.js";
 import type { RendererMode, RendererDiagnostics, RendererSelection as GenericRendererSelection, RendererModeOptions } from "../rendererTypes.js";
+import { staleFallbackReason, type RendererFallback } from "../rendererPreference.js";
 export type { RendererMode, RendererDiagnostics, RendererModeOptions } from "../rendererTypes.js";
 export type RendererSelection = GenericRendererSelection<Engine | WebGPUEngine>;
 
 /** Environment, preferences and presentation waits are explicit host ports. */
 export interface RendererBootstrapHost {
   readPreference(): RendererMode | null;
-  savePreference(mode: RendererMode): void;
+  /** Saves the mode that worked, or with null forgets it. Only WebGPU is saved: WebGL is a fallback, kept with its reason. */
+  savePreference(mode: RendererMode | null): void;
+  /** Why WebGPU last failed here, so that automatic mode need not wait for it again until that may have changed. */
+  readFallback(): RendererFallback | null;
+  saveFallback(fallback: RendererFallback | null): void;
+  /** The browser's user agent: an update may fix WebGPU. */
+  userAgent(): string;
+  /** Milliseconds since 1970. */
+  now(): number;
   createProbeCanvas(): HTMLCanvasElement;
   devicePixelRatio(): number;
   diagnostics(): Pick<RendererDiagnostics, "navigatorGpuPresent" | "isSecureContext">;
@@ -79,8 +88,17 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function persistWorkingRenderer(mode: RendererMode, host: RendererBootstrapHost): void {
+function persistWorkingRenderer(mode: RendererMode | null, host: RendererBootstrapHost): void {
   try { host.savePreference(mode); } catch { /* persistence must not prevent a working backend */ }
+}
+
+/** Remembers why WebGPU failed, with what was true then, in place of a preference for WebGL. */
+function persistFallback(mode: "webgl2" | "webgl", reason: string, host: RendererBootstrapHost): void {
+  try {
+    const { navigatorGpuPresent, isSecureContext } = host.diagnostics();
+    host.saveFallback({ mode, reason, at: host.now(), navigatorGpuPresent, isSecureContext, userAgent: host.userAgent() });
+    host.savePreference(null);
+  } catch { /* persistence must not prevent a working backend */ }
 }
 
 function applyCanvasDimensions(
@@ -150,7 +168,7 @@ function createWebGlSelection(
 ): RendererSelection {
   const engine = createWebGlEngine(canvas, antialias);
   const mode = actualWebGLMode(engine);
-  persistWorkingRenderer(mode, host);
+  persistFallback(mode, fallbackReason ?? "WebGPU did not start", host);
   return {
     requested,
     mode,
@@ -194,6 +212,7 @@ async function initializeWebGpuRenderer(
     if (probe.ok) {
       const engine = await createWebGpuEngine(canvas, options, host);
       persistWorkingRenderer("webgpu", host);
+      try { host.saveFallback(null); } catch { /* persistence must not prevent a working backend */ }
       return {
         renderer: {
           requested,
@@ -287,7 +306,7 @@ export async function bootstrapRenderer(
       engine.dispose();
       throw new Error("Forced WebGL2 is unavailable on this canvas");
     }
-    persistWorkingRenderer(mode, host);
+    // Not persisted: renderer.backend keeps the choice, and Auto must start from WebGPU again.
     return {
       renderer: {
         requested: force,
@@ -302,39 +321,41 @@ export async function bootstrapRenderer(
 
   let persisted: RendererMode | null = null;
   try { persisted = host.readPreference(); } catch { /* use normal detection if storage is unavailable */ }
-  if (persisted !== "webgl2" && persisted !== "webgl") {
-    let requirement: string | null = null;
-    try { requirement = await host.webGlRequirement?.() ?? null; } catch { /* use normal detection */ }
-    if (requirement) {
-      host.report?.("info", `[renderer] Using WebGL2: ${requirement}`);
-      // Not persisted: the requirement is read again on every start.
+  if (persisted === "webgl2" || persisted === "webgl") {
+    // Earlier versions saved any fallback as the preference, which kept WebGL forever.
+    host.report?.("info", `[renderer] Ignoring the saved ${persisted} preference of an earlier version; trying WebGPU.`);
+    persistWorkingRenderer(null, host);
+    persisted = null;
+  }
+  let requirement: string | null = null;
+  try { requirement = await host.webGlRequirement?.() ?? null; } catch { /* use normal detection */ }
+  if (requirement) {
+    host.report?.("info", `[renderer] Using WebGL2: ${requirement}`);
+    // Not persisted: the requirement is read again on every start.
+    const engine = createWebGlEngine(canvas, antialias);
+    return {
+      renderer: { requested: "auto", mode: actualWebGLMode(engine), engine, antialias, devicePixels: true,
+        fallbackReason: requirement, diagnostics: { ...getRendererDiagnostics(host), webGlRequired: true } },
+      scene: createRendererScene(engine),
+    };
+  }
+  let fallback: RendererFallback | null = null;
+  try { fallback = host.readFallback(); } catch { /* use normal detection if storage is unavailable */ }
+  if (fallback) {
+    const diagnostics = getRendererDiagnostics(host);
+    const stale = staleFallbackReason(fallback, { ...diagnostics, userAgent: host.userAgent(), at: host.now() });
+    if (stale === null) {
+      host.report?.("info", `[renderer] Using WebGL, since WebGPU failed here at ${new Date(fallback.at).toISOString()}: ${fallback.reason}`);
       const engine = createWebGlEngine(canvas, antialias);
       return {
         renderer: { requested: "auto", mode: actualWebGLMode(engine), engine, antialias, devicePixels: true,
-          fallbackReason: requirement, diagnostics: getRendererDiagnostics(host) },
+          fallbackReason: fallback.reason,
+          diagnostics: { ...diagnostics, fromPersistedPreference: true, fallbackSavedAt: fallback.at } },
         scene: createRendererScene(engine),
       };
     }
-  }
-  if (persisted === "webgl2" || persisted === "webgl") {
-    host.report?.("info", `[renderer] Using persisted client renderer preference: ${persisted}`);
-    const engine = createWebGlEngine(canvas, antialias, persisted === "webgl");
-    const mode = actualWebGLMode(engine);
-    persistWorkingRenderer(mode, host);
-    return {
-      renderer: {
-        requested: "auto",
-        mode,
-        engine,
-        antialias,
-        devicePixels: true,
-        diagnostics: {
-          ...getRendererDiagnostics(host),
-          fromPersistedPreference: true,
-        },
-      },
-      scene: createRendererScene(engine),
-    };
+    host.report?.("info", `[renderer] Trying WebGPU again, since ${stale}. It failed at ${new Date(fallback.at).toISOString()}: ${fallback.reason}`);
+    try { host.saveFallback(null); } catch { /* the next result replaces it */ }
   }
 
   if (persisted === "webgpu") {

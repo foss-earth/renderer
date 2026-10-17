@@ -5,6 +5,10 @@ export interface RendererDiagnostics {
   isSupportedAsyncResult: boolean | null;
   isSecureContext: boolean;
   fromPersistedPreference?: boolean;
+  /** WebGL was chosen without trying WebGPU, by a fallback saved at this time (milliseconds since 1970). */
+  fallbackSavedAt?: number;
+  /** WebGL was chosen without trying WebGPU, because the device needs it, such as a VR headset. */
+  webGlRequired?: boolean;
 }
 
 /** Pure selection data; a backend adapter supplies the concrete engine type. */

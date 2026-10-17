@@ -1,4 +1,4 @@
-import { readRendererPreference, saveRendererPreference, clearRendererPreference, type RendererPreferenceStorage } from "../rendererPreference.js";
+import { readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, type RendererPreferenceStorage } from "../rendererPreference.js";
 import type { RendererMode, RendererModeOptions } from "../rendererTypes.js";
 import { bootstrapRenderer, type RendererBootstrapHost } from "./createRendererMode.js";
 import type { PresentationProbePolicy } from "./webgpuPresentationProbe.js";
@@ -25,6 +25,10 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
   return {
     readPreference: () => readRendererPreference(storage),
     savePreference: mode => saveRendererPreference(mode, storage),
+    readFallback: () => readRendererFallback(storage),
+    saveFallback: fallback => saveRendererFallback(fallback, storage),
+    userAgent: () => browserWindow.navigator.userAgent ?? "",
+    now: () => Date.now(),
     createProbeCanvas: () => browserDocument.createElement("canvas"),
     devicePixelRatio: () => browserWindow.devicePixelRatio || 1,
     diagnostics: () => ({ navigatorGpuPresent: "gpu" in browserWindow.navigator, isSecureContext: browserWindow.isSecureContext ?? false }),
@@ -39,6 +43,31 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
 }
 
 const XR_SUPPORT_TIMEOUT_MS = 1500;
+/** Headset browsers: Meta's and Pico's, Wolvic, and the "VR" token Meta and Samsung add to the user agent. */
+const HEADSET_BROWSER = /OculusBrowser|PicoBrowser|Wolvic|\bVR\b/;
+
+interface UserAgentData {
+  platform?: string;
+  getHighEntropyValues?(hints: string[]): Promise<{ formFactors?: string[] }>;
+}
+
+/**
+ * Chrome on every Android phone answers immersive-vr with true, for Google
+ * Cardboard, so there only a headset's browser counts as one.
+ */
+async function isAndroidPhone(browserWindow: Window): Promise<boolean> {
+  const navigator = browserWindow.navigator as Navigator & { userAgentData?: UserAgentData };
+  const userAgent = navigator.userAgent ?? "";
+  const data = navigator.userAgentData;
+  if (data?.platform !== "Android" && !/Android/.test(userAgent)) return false;
+  if (HEADSET_BROWSER.test(userAgent)) return false;
+  // Chrome on an Android XR headset reports the XR form factor.
+  try {
+    const { formFactors } = await data?.getHighEntropyValues?.(["formFactors"]) ?? {};
+    if (formFactors?.includes("XR")) return false;
+  } catch { /* a phone, as far as can be told */ }
+  return true;
+}
 
 /** A headset browser that can open immersive VR needs the WebGL backend. */
 async function immersiveVrRequirement(browserWindow: Window): Promise<string | null> {
@@ -47,7 +76,7 @@ async function immersiveVrRequirement(browserWindow: Window): Promise<string | n
   let timer = 0;
   try {
     const supported = await Promise.race([
-      xr.isSessionSupported("immersive-vr"),
+      (async () => !await isAndroidPhone(browserWindow) && await xr.isSessionSupported("immersive-vr"))(),
       new Promise<boolean>(resolve => { timer = browserWindow.setTimeout(() => resolve(false), XR_SUPPORT_TIMEOUT_MS); }),
     ]);
     return supported ? "this device can present immersive VR, which needs WebGL" : null;

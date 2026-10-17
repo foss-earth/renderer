@@ -45,6 +45,17 @@ describe("injected Renderer panel", () => {
     panel.destroy(); panel.destroy();
     expect(f.destroy).toHaveBeenCalledTimes(3);
   });
+  it("says when an automatic WebGL came from a saved fallback, and when WebGPU is tried again", () => {
+    const settings = createSettingsRegistry(); settings.register(RENDERER_PARAMETERS);
+    const at = Date.UTC(2026, 9, 12, 8);
+    const panel = createRendererPanel({ renderer: { mode: "webgl2", requested: "auto", fallbackReason: "probe failed",
+      diagnostics: { navigatorGpuPresent: true, isSupportedAsyncResult: null, isSecureContext: true, fromPersistedPreference: true, fallbackSavedAt: at } },
+    settings, ui: uiFixture().ui, onChange: vi.fn() });
+    const text = panel.element.querySelector("pre")?.textContent;
+    expect(text).toContain("Error: probe failed");
+    expect(text).toContain("Saved fallback from 2026-10-12: WebGPU is tried again from 2026-10-15, or sooner if the browser changes.");
+    panel.destroy();
+  });
 
   it("keeps the Sky exposure/fill controls out of the renderer catalogue", () => {
     expect(RENDERER_PARAMETERS.some(spec => spec.id === "renderer.exposureEV" || spec.id === "renderer.ambientFillMultiplier")).toBe(false);

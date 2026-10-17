@@ -1,6 +1,9 @@
 import { WebGPUEngine } from "@babylonjs/core";
 import { WebGPUCacheBindGroups } from "@babylonjs/core/Engines/WebGPU/webgpuCacheBindGroups.js";
 import { WebGPUCacheRenderPipelineTree } from "@babylonjs/core/Engines/WebGPU/webgpuCacheRenderPipelineTree.js";
+// DynamicTexture brings the WebGL engine's dynamic texture methods but not the WebGPU engine's, which
+// only Babylon's index imports, and a build of only the Babylon modules used (babylonBarrels) leaves it out.
+import "@babylonjs/core/Engines/WebGPU/Extensions/engine.dynamicTexture.js";
 
 /**
  * Babylon 8.56.2's WebGPU restoration does not await device initialization and

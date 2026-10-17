@@ -1,4 +1,6 @@
 import { EngineInstrumentation, type AbstractEngine, type Observable, type Scene, type WebGPUEngine } from "@babylonjs/core";
+// The WebGL engine's GPU frame timer, which EngineInstrumentation calls; the WebGPU engine brings its own.
+import "@babylonjs/core/Engines/Extensions/engine.query.js";
 import type { FrameProfiler } from "../profiling/frameProfiler.js";
 
 /**

@@ -16,7 +16,7 @@ The pure contracts initialize no device, scene, backend or global singleton. The
 | `/profiling` | Rolling timing summaries and traces, resource streams for the streamgraphs, network and memory sources, and injected measurement-session lifetime. Also exported by the root. Needs a host monotonic clock. |
 | `/frame-budget.css` | Styles for the frame budget table. Generic control and section styles come from [`@foss-earth/ui`](https://github.com/foss-earth/ui). |
 | `/diagnostics` | Mesh inspector, vector drawing and performance metrics over the host scene. Canvas device, clock, memory and feature readings are injected. |
-| `/vite` | Node-only Vite plugin `babylonShaderChunks()` and `BABYLON_SHADER_GROUPS`. See [Babylon shader build support](docs/vite.md). |
+| `/vite` | Node-only Vite plugins `babylonShaderChunks()` and `babylonBarrels()`, with `BABYLON_SHADER_GROUPS` and `BABYLON_BARREL`. See [Babylon build support](docs/vite.md). |
 
 Entries are ESM JavaScript with declarations in `dist/`. Babylon, `@foss-earth/ui` and Vite are optional peers. Pure consumers need none of them; `@foss-earth/ui` is used for types only. Loading the Babylon entry imports backend code but constructs no engine or scene.
 

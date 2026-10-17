@@ -1,11 +1,13 @@
-# Babylon shader build support
+# Babylon build support
 
-Renderer owns the generic Babylon shader chunk policy through the optional Node
+Renderer owns the generic Babylon build policies through the optional Node
 entry `@foss-earth/renderer/vite`. It exports `babylonShaderChunks()` and
-`BABYLON_SHADER_GROUPS`. The root, browser and Babylon runtime entries do not
-re-export the build plugin. Its only Vite source import is a type import; emitted
-Node code imports neither Vite nor Babylon and reads no browser globals. Importing
-the plugin creates no renderer, scene, scheduler, device or map runtime.
+`BABYLON_SHADER_GROUPS`, and `babylonBarrels()` and `BABYLON_BARREL`, which keep
+[only the Babylon modules used](#only-the-babylon-modules-used). The root, browser
+and Babylon runtime entries do not re-export the build plugins. Their only Vite
+source imports are type imports; emitted Node code imports neither Vite nor
+Babylon and reads no browser globals. Importing the plugins creates no renderer,
+scene, scheduler, device or map runtime.
 
 This source increment is prepared but **unrun and unqualified**. The prior
 qualified Renderer source `ee8954c36626453a7454538d6313024385f4de68` and its
@@ -113,3 +115,70 @@ Build attribution/provenance is the separate About owner contract
 `@foss-earth/about/vite`; Renderer does not import application Vite helpers,
 Flight, Campus, About, CI or Platform implementation. The existing website helper
 can be changed to a public re-export by its sole primary after source release.
+
+## Only the Babylon modules used
+
+`babylonBarrels()` lets a production build keep only the Babylon modules an
+application uses.
+
+```ts
+import { defineConfig } from "vite";
+import { babylonBarrels, babylonShaderChunks } from "@foss-earth/renderer/vite";
+
+export default defineConfig({ plugins: [babylonBarrels(), babylonShaderChunks()] });
+```
+
+Babylon 8.56.2 declares every file as having side effects
+(`"sideEffects": ["**/*", …]`), its index files too, so one name imported from
+`@babylonjs/core` keeps the whole library: both shader languages, every
+material, audio, physics and the flow graph. The index files only re-export. Counted free of side effects
+(`BABYLON_BARREL` matches them), a name brings the module that defines it and
+that module's own imports, and nothing else. The JavaScript the FOSS Earth app
+loads at start went from 69 files and 1.83 MiB compressed (7.5 MiB minified) to
+42 files and 1.10 MiB (4.1 MiB); the tour's campus pages went the same way, and
+0sfs's flight, which loads Babylon later, from 82 files and 2.12 MiB to 64 and
+1.43 MiB (October 2026). Only core's index files are counted: a loader's index
+registers the loader, and `import "@babylonjs/loaders/glTF"` is written for that
+alone. Only `vite build` uses the plugin; the dev server serves Babylon whole.
+
+What the modules left out did as side effects is then missing. Babylon's index
+imports modules that add methods to its classes, or register shaders and other
+things by name; a module that relies on one imports it itself, as
+[Babylon's guide to ES6 imports](https://doc.babylonjs.com/setup/frameworkPackages/es6Support)
+says. The FOSS Earth packages import these:
+
+| Module | Imported by | For |
+| --- | --- | --- |
+| `Engines/WebGPU/Extensions/engine.dynamicTexture.js` | Renderer, `src/babylon/recoverableWebGpuEngine.ts` | `createDynamicTexture` and `updateDynamicTexture` on the WebGPU engine, which `DynamicTexture` (text labels) calls. `DynamicTexture` imports only the WebGL engine's. |
+| `Engines/Extensions/engine.query.js` | Renderer, `src/babylon/frameProfiler.ts` | The WebGL engine's GPU frame timer, which `EngineInstrumentation` calls when frame time is measured. The WebGPU engine has its own. |
+| `Rendering/edgesRenderer.js` | Engine, `src/visualization/orbitCompass.ts` | `enableEdgesRendering`, which draws the orbit compass's lines. |
+| `Collisions/collisionCoordinator.js` | Engine, `src/babylon/globeCamera.ts` | The collision coordinator, which the globe camera uses on every move once `checkCollisions` is on. |
+
+A missing one shows in a production build only, in one of three ways:
+
+- Most methods added this way have a stand-in that throws and names the module:
+  "EdgesRenderer needs to be imported before as it contains a side-effect
+  required by your code."
+- Some have none, and the call fails with "… is not a function", as
+  `createDynamicTexture` did on WebGPU.
+- A shader or shader include that nothing registered is fetched from the page's
+  `src/Shaders/` or `src/ShadersWGSL/` as a `.fx` file, which our sites answer
+  with 404.
+
+Babylon's offline store (`Offline/database.js`) is left out too, since only the
+index imports it. It does nothing unless `Database.IDBStorageEnabled` is set,
+which our code does not do; our sites keep their files with their own service
+worker. An application that turns it on imports the module itself.
+
+The modules were checked by building each application with and without the
+plugin, importing each build's Babylon modules in Node, and comparing every
+Babylon class's own and prototype members and their source. With the four
+imports above, the app's build with the plugin still lacks 133 members that the
+build without it has, and keeps 18 as stand-ins. Our code reaches none of them:
+they are not called, or only after a check that they exist, or only by Babylon
+features we do not use: views, the loading screen of `SceneLoader.Append`,
+physics, reading `.babylon` files, screenshots and multiview. The tour lacks the
+same members and 0sfs two fewer. Some failures wait for the visitor: without the
+collision coordinator the globe camera fails on its first move, not before.
+After a Babylon upgrade, or when code starts using a Babylon feature, run the
+production build in a browser on WebGPU and on WebGL 2, and move the camera.

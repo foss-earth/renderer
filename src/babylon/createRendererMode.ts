@@ -14,6 +14,11 @@ export interface RendererBootstrapHost {
   devicePixelRatio(): number;
   diagnostics(): Pick<RendererDiagnostics, "navigatorGpuPresent" | "isSecureContext">;
   presentation: WebGpuPresentationProbeOptions;
+  /**
+   * Why this device needs WebGL in automatic mode, or null. Babylon presents
+   * immersive WebXR sessions only from a WebGL context.
+   */
+  webGlRequirement?(): Promise<string | null>;
   report?(level: "log" | "info" | "warn", message: string, detail?: unknown): void;
 }
 export interface RendererBootstrapOptions extends RendererModeOptions { host: RendererBootstrapHost; }
@@ -297,6 +302,20 @@ export async function bootstrapRenderer(
 
   let persisted: RendererMode | null = null;
   try { persisted = host.readPreference(); } catch { /* use normal detection if storage is unavailable */ }
+  if (persisted !== "webgl2" && persisted !== "webgl") {
+    let requirement: string | null = null;
+    try { requirement = await host.webGlRequirement?.() ?? null; } catch { /* use normal detection */ }
+    if (requirement) {
+      host.report?.("info", `[renderer] Using WebGL2: ${requirement}`);
+      // Not persisted: the requirement is read again on every start.
+      const engine = createWebGlEngine(canvas, antialias);
+      return {
+        renderer: { requested: "auto", mode: actualWebGLMode(engine), engine, antialias, devicePixels: true,
+          fallbackReason: requirement, diagnostics: getRendererDiagnostics(host) },
+        scene: createRendererScene(engine),
+      };
+    }
+  }
   if (persisted === "webgl2" || persisted === "webgl") {
     host.report?.("info", `[renderer] Using persisted client renderer preference: ${persisted}`);
     const engine = createWebGlEngine(canvas, antialias, persisted === "webgl");

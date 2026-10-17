@@ -214,6 +214,39 @@ describe("bootstrapGlobeRenderer", () => {
     expect(probeWebGpuPresentation).toHaveBeenCalled();
   });
 
+  it("prefers WebGL2 over a persisted WebGPU choice where immersive VR is supported, without persisting it", async () => {
+    window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgpu");
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const host = { ...createBrowserRendererHost(), webGlRequirement: async () => "immersive VR" };
+    const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { host });
+    expect(renderer).toMatchObject({ requested: "auto", mode: "webgl2", fallbackReason: "immersive VR" });
+    expect(renderer.engine.useReverseDepthBuffer).toBe(true);
+    expect(mockState.webGpuInitAsync).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
+  });
+
+  it("keeps an explicit WebGPU request on an immersive VR device", async () => {
+    const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const webGlRequirement = vi.fn(async () => "immersive VR");
+    const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"),
+      { force: "webgpu", host: { ...createBrowserRendererHost(), webGlRequirement } });
+    expect(renderer.mode).toBe("webgpu");
+    expect(webGlRequirement).not.toHaveBeenCalled();
+  });
+
+  it("reads immersive VR support from navigator.xr and ignores a failing query", async () => {
+    const xr = { isSessionSupported: vi.fn(async (mode: string) => mode === "immersive-vr") };
+    Object.defineProperty(window.navigator, "xr", { value: xr, configurable: true });
+    try {
+      expect(await createBrowserRendererHost().webGlRequirement?.()).toContain("immersive VR");
+      xr.isSessionSupported.mockRejectedValueOnce(new Error("blocked"));
+      expect(await createBrowserRendererHost().webGlRequirement?.()).toBeNull();
+    } finally {
+      Reflect.deleteProperty(window.navigator, "xr");
+    }
+    expect(await createBrowserRendererHost().webGlRequirement?.()).toBeNull();
+  });
+
   it("persists WebGPU when presentation probe succeeds on the real scene", async () => {
     const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");

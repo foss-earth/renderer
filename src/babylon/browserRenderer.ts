@@ -33,8 +33,29 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
       delay: ms => new Promise<void>(resolve => browserWindow.setTimeout(resolve, ms)),
       policy: options.probePolicy,
     },
+    webGlRequirement: () => immersiveVrRequirement(browserWindow),
     report: options.report,
   };
+}
+
+const XR_SUPPORT_TIMEOUT_MS = 1500;
+
+/** A headset browser that can open immersive VR needs the WebGL backend. */
+async function immersiveVrRequirement(browserWindow: Window): Promise<string | null> {
+  const xr = (browserWindow.navigator as Navigator & { xr?: { isSessionSupported(mode: string): Promise<boolean> } }).xr;
+  if (!xr || typeof xr.isSessionSupported !== "function") return null;
+  let timer = 0;
+  try {
+    const supported = await Promise.race([
+      xr.isSessionSupported("immersive-vr"),
+      new Promise<boolean>(resolve => { timer = browserWindow.setTimeout(() => resolve(false), XR_SUPPORT_TIMEOUT_MS); }),
+    ]);
+    return supported ? "this device can present immersive VR, which needs WebGL" : null;
+  } catch {
+    return null;
+  } finally {
+    browserWindow.clearTimeout(timer);
+  }
 }
 
 /** Compatibility default-port adapter; creates no scheduler or feature runtime. */

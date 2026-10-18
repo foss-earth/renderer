@@ -1,5 +1,5 @@
 import {
-  Color3, Constants, type DynamicTexture, Material, Mesh, MeshBuilder, Quaternion, StandardMaterial,
+  Color3, Constants, type DynamicTexture, Material, Mesh, CreateCylinder, CreatePlane, CreateTube, Quaternion, StandardMaterial,
   Texture, TransformNode, Vector3, type Scene,
 } from "@babylonjs/core";
 import type { CanvasTextureDevicePorts } from "../canvasTextureDevice.js";
@@ -178,15 +178,15 @@ export function createVectorDebugDrawing(scene: Scene, parent: TransformNode, op
     const color = material(`vector-debug/${force.id}/material`, force.color);
     const shape = shapeOf(force);
     const shaft = shape === "arc"
-      ? MeshBuilder.CreateTube(`vector-debug/${force.id}/shaft`, {
+      ? CreateTube(`vector-debug/${force.id}/shaft`, {
         path: Array.from({ length: ARC_POINTS }, (_, index) => {
           const angle = index / (ARC_POINTS - 1) * Math.PI / 2;
           return new Vector3(Math.cos(angle), 0, Math.sin(angle));
         }),
         radius: 0.0225, tessellation: 6, updatable: true,
       }, scene)
-      : MeshBuilder.CreateCylinder(`vector-debug/${force.id}/shaft`, { height: 1, diameter: 0.045, tessellation: 6 }, scene);
-    const head = MeshBuilder.CreateCylinder(`vector-debug/${force.id}/head`, { height: 1, diameterTop: 0, diameterBottom: 0.22, tessellation: 6 }, scene);
+      : CreateCylinder(`vector-debug/${force.id}/shaft`, { height: 1, diameter: 0.045, tessellation: 6 }, scene);
+    const head = CreateCylinder(`vector-debug/${force.id}/head`, { height: 1, diameterTop: 0, diameterBottom: 0.22, tessellation: 6 }, scene);
     // An arrow turns its whole glyph; an arc's head turns alone along the arc.
     if (shape === "arc") head.rotationQuaternion = Quaternion.Identity();
     for (const mesh of [shaft, head]) {
@@ -208,7 +208,7 @@ export function createVectorDebugDrawing(scene: Scene, parent: TransformNode, op
       labelAnchor = new TransformNode(`vector-debug/${force.id}/label-anchor`, scene);
       labelAnchor.parent = node;
       labelAnchor.doNotSerialize = true;
-      label = MeshBuilder.CreatePlane(`vector-debug/${force.id}/label`, { width: 3.5, height: 0.55 }, scene);
+      label = CreatePlane(`vector-debug/${force.id}/label`, { width: 3.5, height: 0.55 }, scene);
       label.parent = labelAnchor;
       label.billboardMode = Mesh.BILLBOARDMODE_ALL;
       label.isPickable = false;
@@ -295,7 +295,7 @@ export function createVectorDebugDrawing(scene: Scene, parent: TransformNode, op
     // A sweep too small to separate its points has no tube direction to draw.
     const drawable = path.every((next, index) => index === 0 || !next.equals(path[index - 1]));
     glyph.shaft.setEnabled(drawable);
-    if (drawable) MeshBuilder.CreateTube(glyph.shaft.name, { path, instance: glyph.shaft });
+    if (drawable) CreateTube(glyph.shaft.name, { path, instance: glyph.shaft });
     const tangent = v.scale(Math.cos(tubeEnd)).subtractInPlace(u.scale(Math.sin(tubeEnd)));
     glyph.head.position.copyFrom(point(tubeEnd).addInPlace(tangent.scale(headLength / 2)));
     Quaternion.FromUnitVectorsToRef(Vector3.Up(), tangent, glyph.head.rotationQuaternion!, 4 * Number.EPSILON);

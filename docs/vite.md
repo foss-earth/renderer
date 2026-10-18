@@ -22,22 +22,56 @@ import { babylonShaderChunks } from "@foss-earth/renderer/vite";
 export default defineConfig({ plugins: [babylonShaderChunks()] });
 ```
 
-The retained Vite **8.3.4** / Babylon **8.56.2** repair selects two Rolldown
-`build.rolldownOptions.output.codeSplitting.groups`:
+With Vite **8.3.4** and Babylon **8.56.2**, the plugin sets four Rolldown
+`build.rolldownOptions.output.codeSplitting.groups`, tried in this order:
 
-| Name | Babylon module directory |
-| --- | --- |
-| `babylon-shaders-glsl` | `@babylonjs/core/Shaders/`, including `ShadersInclude/` |
-| `babylon-shaders-wgsl` | `@babylonjs/core/ShadersWGSL/`, including `ShadersInclude/` |
+| Name | Modules | Loads |
+| --- | --- | --- |
+| `babylon-shader-store` | `@babylonjs/core/Engines/shaderStore.js` | with Babylon |
+| `babylon-shaders-static` | shaders and includes in `Shaders/` or `ShadersWGSL/` that code outside those folders imports statically, directly or through other shaders | with Babylon |
+| `babylon-shaders-glsl` | the rest of `Shaders/`, including `ShadersInclude/` | the first time a material imports a GLSL shader |
+| `babylon-shaders-wgsl` | the rest of `ShadersWGSL/`, including `ShadersInclude/` | the first time a material imports a WGSL shader |
 
-Both slash styles are supported. Materials, engines and host shader directories
-are not classified. Babylon root imports register shader modules as side effects;
-when that root is reached through a lazy renderer import, grouping avoids one
-output chunk for each shader/include. The policy changes chunk placement, not
-shader selection or rendering capabilities. A renderer already present in the
-initial entry may gain no request-count reduction. A phone entry stays free of
-Babylon only when the host's actual import graph keeps the renderer lazy; this
-plugin does not move a static renderer import out of that entry.
+Babylon's materials import their shaders with `import()`, for the language the
+engine compiles, so a page on WebGPU never fetches the GLSL chunk and a page on
+WebGL never fetches the WGSL one (optimization backlog S4). The other two groups
+keep it that way:
+
+- The store that every shader registers in gets a chunk of its own. The code that
+  compiles shaders imports it too, and with the store in a language's chunk,
+  loading Babylon would load that language.
+- A few Babylon modules import shaders statically, such as the WebGPU clear quad,
+  the effect renderer's `postprocess.vertex` and the WGSL shader processor's
+  includes, and so may a host. Those shaders load with that code. They share one
+  chunk, since other shaders import some of them too, and each would otherwise
+  get a chunk of its own.
+
+Babylon's index files do not count as static importers. With `babylonBarrels()`
+the build leaves them out; without it they import every shader, and each
+language's chunk loads with Babylon, as before the split. Each shader group sets
+`includeDependenciesRecursively: false`, since a shader's imports, the store and
+other shaders, each have their own group. Both slash styles are supported.
+Materials, engines and host shader directories are not classified. The policy
+changes chunk placement, not shader selection or rendering capabilities. A phone
+entry stays free of Babylon only when the host's actual import graph keeps the
+renderer lazy; this plugin does not move a static renderer import out of that
+entry.
+
+Each built page whose code can reach a language's chunk names it in the head:
+
+```html
+<script type="application/json" id="babylon-shader-chunks">{"glsl":"/app/assets/babylon-shaders-glsl-….js","wgsl":"/app/assets/babylon-shaders-wgsl-….js"}</script>
+```
+
+URLs follow the build's base, absolute or relative to the page. The dev server
+adds nothing.
+The renderer's bootstrap calls the host port `preloadShaders(language)` as soon
+as it knows the language: `"wgsl"` once `WebGPUEngine.IsSupportedAsync` succeeds,
+`"glsl"` when it creates a WebGL engine. The browser host adds a
+`<link rel="modulepreload" crossorigin data-shaders="…">` for that URL, so the
+chunk downloads while the engine starts instead of when the first material
+compiles. A page without the element, or a host without the port, loads the
+chunk on first use as before.
 
 Hosts with their own chunk groups can compose the exported groups explicitly:
 
@@ -75,8 +109,11 @@ The later build/consumer chain must also run these real emitted-module fixtures:
 - `npm run test:vite:graph -- <fresh-output-directory>` performs two sequential
   actual Vite production builds of the same phone → lazy Renderer/Babylon graph,
   first without grouping and then with the public plugin. It requires shader
-  fragmentation in the baseline, one shader chunk per language after grouping,
-  identical actual shader module sets, one physical Babylon provider and no
+  fragmentation in the baseline and, after grouping, one `babylon-shader-store`
+  chunk holding only the store, and for each language one chunk named after it
+  that imports the store and is in the lazy graph but not the initial one, with
+  every other chunk holding that language's shaders named
+  `babylon-shaders-static`. It also requires identical actual shader module sets, one physical Babylon provider and no
   renderer/Babylon in either initial phone graph. It retains built chunk bytes,
   SHA256 maps, actual import/module graphs and a portable receipt. It also
   imports each actual emitted lazy facade in Node and checks the `Engine`,
@@ -104,7 +141,7 @@ The source is retained from repository `foss-earth/foss-earth.github.io`, revisi
 `406e71e7c03317115a7c056548d45926c7d790be`, path
 `vite/babylonShaderChunks.ts`, SHA256
 `e34ac62f64e69826cbda439dd0268dddcab35d645c6039f765f3b2076942d99d`.
-Its group regexes, names and config hook are preserved. Import paths and the
+Its config hook and the two language group names are preserved; the store and static groups, the page element and the preload were added here for S4. Import paths and the
 public documentation/fixtures are adapted to this independent owner. The
 machine-independent record is [fixtures/vite/provenance.json](../fixtures/vite/provenance.json).
 Private original logs/archives remain retained by the primary; they are not

@@ -19,7 +19,7 @@ scheduling helpers over those authorities; it does not replace the runtime.
 | `ReadinessPolicy` | ms/ms/ratio | Host setting values for adaptive polling, with preserved defaults and explicit bounds in README. |
 | Babylon `scene` | `@babylonjs/core@8.56.2` instance | One supplied scene, its existing active camera, readiness cache and mesh/light observables. |
 | Babylon `isPreparingFrame()` | Boolean | True from frame preparation start through render, so that frame accounts for its own changes. |
-| Bootstrap `RendererBootstrapHost` | Storage/environment ports | Remembered-mode read/save, throwaway canvas, DPR, secure-context/GPU presence, presentation waits and optional reporting. No globals in the selection function. |
+| Bootstrap `RendererBootstrapHost` | Storage/environment ports | Remembered-mode read/save, throwaway canvas, DPR, secure-context/GPU presence, presentation waits, optional reporting and an optional `preloadShaders(language)` that preloads the page's shader chunk for the language chosen ([Babylon build support](vite.md)). No globals in the selection function. |
 | Presentation probe policy | frames/count/ms | Defaults 3/4/75, explicit host-controlled values; no native hardware qualification follows from mock tests. |
 | `RendererPlatformPort` | DPR and visibility booleans | Subscribe/unsubscribe resize/visibility events. Source resolution math and hidden-page pause use the same host scheduler. |
 | `applyClipping` / `onDeviceLost` | Host callbacks | Engine applies camera clipping; host navigation/features end their own leases. Renderer imports neither implementation. |

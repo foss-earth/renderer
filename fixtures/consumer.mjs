@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { createRenderScheduler, createRendererResourceLifecycle } from "@foss-earth/renderer";
 import { createSceneUpdates, whenMeshesReady } from "@foss-earth/renderer/babylon";
+import { createGoogleTileWorkerClient, installGoogleTilePreparation } from "@foss-earth/renderer/google-preparation";
 import { NullEngine, Scene } from "@babylonjs/core";
+
+assert.equal(typeof createGoogleTileWorkerClient, "function");
+assert.equal(typeof installGoogleTilePreparation, "function");
 
 // A minimal host consumes emitted ESM through public exports with one queue.
 let callback;

@@ -34,3 +34,5 @@ export type { CanvasTextureDevicePorts, CanvasTextureRequest } from "./canvasTex
 export { disposeTextureResource, protectTextureDisposal } from "./textureDisposal.js";
 
 export { whenBorrowedDeviceSettled } from "./nativeDeviceSettlement.js";
+export type { GooglePreparedPrimitive, GooglePreparedTile, GooglePreparationStatus, GoogleTileWorkerClient, GoogleTileWorkerPort } from "./googleTileWorkerClient.js";
+export type { GooglePreparationOptions, GooglePreparedContainer, GoogleTextureSampler, GoogleTilePreparationRenderer, GoogleTilePreparationTile } from "./googleTilePreparation.js";

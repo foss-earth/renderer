@@ -147,6 +147,47 @@ WebGL staging cleanup attempts the width reset, height reset, both dimension rea
 
 `createPendingImageTexture` is a legacy adapter over Babylon `Texture.updateURL`. Its acquisition and object-URL ports keep the encoded body alive through Babylon load and disposal. Babylon's hidden decode and upload are not charged to the broker by this adapter, so hosts should either state that limitation or move to the bounded decoder and uploader ports for full accounting.
 
+## Prepared Google tiles
+
+The separate `@foss-earth/renderer/google-preparation` entry exports
+`createGoogleTileWorkerClient` and
+`installGoogleTilePreparation` for a host-supplied Google preparation worker.
+The client starts lazily, bounds pending jobs/source bytes, times out and retires
+failed workers, preserves original source bytes for loader fallback, and reports
+actual backend, geometry parity, work/round-trip time and transferred array bytes.
+The host creates its worker; renderer has no native package dependency and does
+not fetch map assets. Dispose the client with the owning Google renderer.
+
+```ts
+const { createGoogleTileWorkerClient, installGoogleTilePreparation } =
+  await import("@foss-earth/renderer/google-preparation");
+const client = createGoogleTileWorkerClient({
+  createWorker: () => createGoogleWorker(),
+  imageColorSpaceConversion: scene.getEngine().isWebGPU ? "none" : "default",
+});
+installGoogleTilePreparation(tiles, scene, client);
+```
+
+The adapter consumes supported-profile geometry and JPEG bitmaps and builds
+Babylon resources with the original loader's hierarchy, handedness, ordered
+transform decomposition, unlit/alpha material properties, samplers and mipmaps.
+It retains all metadata/copyright and keeps the root disabled for the existing
+readiness/traversal policy. Cancellation, superseded tile generations and
+renderer disposal reject stale resources. Compressed JPEG bytes replace the
+uploaded bitmap in Babylon's context-restoration buffers so decoded pixels can
+be closed after upload. Unsupported profiles, EXIF JPEGs, worker failures and
+ICC-bearing JPEGs in WebGL keep the original complete loader with a reason.
+
+`tests/googleTilePreparation.test.ts` compares the installed glTF loader's
+hierarchy/transforms/geometry and all sampler combinations, plus ownership and
+fallback behavior. The local synthetic Chrome fixture is
+`node build/google-browser/run.mjs`; receipts and pixel comparisons are under
+`build/google-browser/evidence/`. WebGL2 covered 12 worker-native cases and
+12 ICC original-loader fallbacks; WebGPU covered 24 worker-native cases,
+including Display P3 ICC JPEGs. Each compared exact RGBA bytes against the
+original loader. This qualifies those authored fixtures, with no measured
+Google app performance claim.
+
 ## Profiling
 
 `createFrameProfiler({ now, ... })` provides rolling summaries, nested sections, concurrent GPU and background work, percentiles, trace tags and window, and cheap disabled paths. `now` is required and is the host monotonic millisecond clock. CPU measurements that start at clock zero are kept.
@@ -176,7 +217,7 @@ A resource no source measures is shown as not available, never as zero. Measurin
 
 ## Limits
 
-- The renderer covers backend and scene selection, presentation and readiness, renderer parameters, the optional panels and catalogue, and generic resource ownership. It does not include the full Babylon runtime, map, terrain, camera or sky composition, or format-specific resource factories. Those belong to the host application and other repositories.
+- The renderer covers backend and scene selection, presentation and readiness, renderer parameters, the optional panels and catalogue, and generic resource ownership. It does not include the full Babylon runtime, map selection, terrain, camera or sky composition. Its optional Google preparation adapter owns resource publication; the host owns sources and loader selection. Those belong to the host application and other repositories.
 - WebGPU and WebGL hardware behavior is not covered by the mocked bootstrap and `NullEngine` tests.
 
 ## Development

@@ -16,5 +16,9 @@ export {
 export type { RendererPreferenceStorage, RendererFallback, RendererFallbackFacts, WebGpuVerification } from "./rendererPreference.js";
 export { describeRendererStart, getRendererLabel } from "./rendererStartNote.js";
 export type { RendererStartNote } from "./rendererStartNote.js";
+export {
+  adviseRenderer, identifyBrowser, readDismissedAdvice, dismissAdvice, RENDERER_ADVICE_DISMISSED_STORAGE_KEY, WEBGPU_ON_A_PHONE_DOCS,
+} from "./rendererAdvice.js";
+export type { RendererAdvice, RendererAdviceId, RendererFacts, BrowserIdentity, BrowserFamily, BrowserPlatform } from "./rendererAdvice.js";
 export * from "./profiling/index.js";
 export type { TextureTransferOutcome, TextureTransferRetirement, TextureTransferAdmission, TryAdmitTextureTransfer } from "./textureTransferTypes.js";

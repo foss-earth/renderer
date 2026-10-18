@@ -1,6 +1,7 @@
 import type { RendererMode, RendererSelection } from "../rendererTypes.js";
 import { getRendererLabel } from "../rendererStartNote.js";
 import { RENDERER_FALLBACK_RETRY_MS } from "../rendererPreference.js";
+import type { RendererAdvice } from "../rendererAdvice.js";
 import type { SettingsRegistry } from "@foss-earth/ui/settings";
 import type { RendererPanelUiPort, RendererPanelSection } from "./types.js";
 
@@ -24,6 +25,8 @@ export interface RendererPanelOptions {
    * Performance debug. They follow the tab's other sections.
    */
   sections?: readonly RendererPanelSection[];
+  /** `adviseRenderer`'s advice, listed with each fix, including what the log was asked not to show again. */
+  advice?: readonly RendererAdvice[];
 }
 
 export interface RendererPanelHandle {
@@ -80,6 +83,32 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
     diagnostics.className = "foss-earth-renderer-diagnostics";
     diagnostics.textContent = lines.join("\n");
     element.append(diagnostics);
+  }
+
+  const advice = options.advice ?? [];
+  if (advice.length > 0) {
+    const list = document.createElement("div");
+    list.className = "foss-earth-choices foss-earth-renderer-advice";
+    const heading = document.createElement("span");
+    heading.className = "foss-earth-choices__heading";
+    heading.textContent = "Advice";
+    list.append(heading);
+    for (const item of advice) {
+      const text = createChoiceNote(item.text);
+      text.dataset.adviceId = item.id;
+      list.append(text, ...item.fix.map(step => createChoiceNote(step)));
+      if (item.docs) {
+        const link = document.createElement("a");
+        link.href = item.docs;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = "The guide";
+        const note = createChoiceNote("");
+        note.append(link);
+        list.append(note);
+      }
+    }
+    element.append(list);
   }
 
   const onChange = (event: Event): void => {

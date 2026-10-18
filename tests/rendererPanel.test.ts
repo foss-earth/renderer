@@ -57,6 +57,18 @@ describe("injected Renderer panel", () => {
     panel.destroy();
   });
 
+  it("lists the advice with each step of its fix and its guide", () => {
+    const settings = createSettingsRegistry(); settings.register(RENDERER_PARAMETERS);
+    const panel = createRendererPanel({ renderer: { mode: "webgl2", requested: "auto", diagnostics: { navigatorGpuPresent: false, isSupportedAsyncResult: false, isSecureContext: false } },
+      settings, ui: uiFixture().ui, onChange: vi.fn(),
+      advice: [{ id: "insecure-origin", tone: "warning", text: "WebGPU needs HTTPS.", fix: ["Forward the port."], docs: "https://example.org/guide" }] });
+    const list = panel.element.querySelector(".foss-earth-renderer-advice");
+    expect([...list!.querySelectorAll("p")].map(note => note.textContent)).toEqual(["WebGPU needs HTTPS.", "Forward the port.", "The guide"]);
+    expect(list!.querySelector("[data-advice-id]")?.getAttribute("data-advice-id")).toBe("insecure-origin");
+    expect(list!.querySelector("a")?.href).toBe("https://example.org/guide");
+    panel.destroy();
+  });
+
   it("keeps the Sky exposure/fill controls out of the renderer catalogue", () => {
     expect(RENDERER_PARAMETERS.some(spec => spec.id === "renderer.exposureEV" || spec.id === "renderer.ambientFillMultiplier")).toBe(false);
   });

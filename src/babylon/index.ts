@@ -5,7 +5,7 @@ export { bootstrapRenderer, bootstrapGlobeRenderer, createRendererMode } from ".
 export type { RendererSelection, RendererBootstrapHost, RendererBootstrapOptions } from "./createRendererMode.js";
 export { createBrowserRendererHost, createBrowserRendererPlatform, bootstrapBrowserRenderer, applyRendererChoice } from "./browserRenderer.js";
 export type { BrowserRendererHostOptions, RendererChoiceSettingsPort, RendererChoiceLocationPort } from "./browserRenderer.js";
-export { probeWebGpuPresentation, isWebGpuPresentationError, defaultPresentationProbePolicy } from "./webgpuPresentationProbe.js";
+export { probeWebGpuPresentation, watchWebGpuPresentation, isWebGpuPresentationError, defaultPresentationProbePolicy } from "./webgpuPresentationProbe.js";
 export type { WebGpuPresentationProbeOptions, WebGpuPresentationProbeResult, PresentationProbePolicy } from "./webgpuPresentationProbe.js";
 export { createPresentationCandidates } from "./presentationCandidates.js";
 export type { PresentationCandidates } from "./presentationCandidates.js";

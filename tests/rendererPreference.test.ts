@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, staleFallbackReason,
   RENDERER_PREFERENCE_STORAGE_KEY, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_FALLBACK_RETRY_MS, type RendererFallback,
+  readWebGpuVerification, saveWebGpuVerification, webGpuVerificationHolds, RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, RENDERER_WEBGPU_VERIFIED_MS,
+  type WebGpuVerification,
 } from "../src/rendererPreference.js";
 
 function memoryStorage() {
@@ -64,5 +66,28 @@ describe("host-owned remembered renderer", () => {
     expect(staleFallbackReason(fallback, { ...now, at: fallback.at + RENDERER_FALLBACK_RETRY_MS })).toContain("three days");
     // A clock set back cannot keep a fallback for ever.
     expect(staleFallbackReason(fallback, { ...now, at: fallback.at - 1 })).toContain("three days");
+  });
+  it("saves a passed probe as JSON, reads back only a whole one, and forgets it with null or Auto-detect", () => {
+    const storage = memoryStorage();
+    const verification: WebGpuVerification = { antialias: true, adaptToDeviceRatio: true, userAgent: "Chrome/141", at: 1_000_000 };
+    saveWebGpuVerification(verification, storage);
+    expect(JSON.parse(storage.values.get(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY)!)).toEqual(verification);
+    expect(readWebGpuVerification(storage)).toEqual(verification);
+    storage.values.set(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, JSON.stringify({ ...verification, antialias: "yes" }));
+    expect(readWebGpuVerification(storage)).toBeNull();
+    storage.values.set(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, "{not json");
+    expect(readWebGpuVerification(storage)).toBeNull();
+    saveWebGpuVerification(null, storage);
+    expect(storage.values.size).toBe(0);
+    saveWebGpuVerification(verification, storage);
+    clearRendererPreference(storage);
+    expect(storage.values.size).toBe(0);
+  });
+  it("holds a passed probe in the same browser for 30 days", () => {
+    const verification: WebGpuVerification = { antialias: true, adaptToDeviceRatio: true, userAgent: "Chrome/141", at: 1_000_000 };
+    expect(webGpuVerificationHolds(verification, { userAgent: "Chrome/141", at: verification.at + 1 })).toBe(true);
+    expect(webGpuVerificationHolds(verification, { userAgent: "Chrome/142", at: verification.at + 1 })).toBe(false);
+    expect(webGpuVerificationHolds(verification, { userAgent: "Chrome/141", at: verification.at + RENDERER_WEBGPU_VERIFIED_MS })).toBe(false);
+    expect(webGpuVerificationHolds(verification, { userAgent: "Chrome/141", at: verification.at - 1 })).toBe(false);
   });
 });

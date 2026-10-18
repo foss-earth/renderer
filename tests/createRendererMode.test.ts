@@ -3,7 +3,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createBrowserRendererHost } from "../src/babylon/browserRenderer.js";
 import type { RendererBootstrapHost } from "../src/babylon/createRendererMode.js";
-import { RENDERER_FALLBACK_RETRY_MS, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_PREFERENCE_STORAGE_KEY, type RendererFallback } from "../src/rendererPreference.js";
+import {
+  RENDERER_FALLBACK_RETRY_MS, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_PREFERENCE_STORAGE_KEY, RENDERER_WEBGPU_VERIFIED_MS,
+  RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, type RendererFallback, type WebGpuVerification,
+} from "../src/rendererPreference.js";
 import { SHADER_CHUNKS_ELEMENT_ID } from "../src/shaderChunks.js";
 
 const mockState = vi.hoisted(() => ({
@@ -22,6 +25,7 @@ const mockState = vi.hoisted(() => ({
   probeErrors: [] as string[],
   probeCalls: [] as unknown[],
   sceneDepthModes: [] as boolean[],
+  watches: [] as Array<(errors: string[]) => void>,
 }));
 
 vi.mock("@babylonjs/core", () => {
@@ -111,6 +115,10 @@ vi.mock("../src/babylon/webgpuPresentationProbe.js", async (importOriginal) => {
         errors: mockState.probeErrors,
       };
     }),
+    watchWebGpuPresentation: vi.fn((_engine, _options, onFailure: (errors: string[]) => void) => {
+      mockState.watches.push(onFailure);
+      return () => {};
+    }),
   };
 });
 
@@ -143,6 +151,7 @@ beforeEach(() => {
   mockState.probeErrors = [];
   mockState.probeCalls = [];
   mockState.sceneDepthModes = [];
+  mockState.watches = [];
   mockState.webGpuInitAsync.mockResolvedValue(undefined);
 });
 
@@ -450,6 +459,94 @@ describe("bootstrapGlobeRenderer", () => {
       const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
       await expect(bootstrapRenderer(document.createElement("canvas"), { force: "webgl2", host })).resolves.toMatchObject({ renderer: { mode: "webgl2" } });
     });
+  });
+});
+
+describe("a WebGPU start in a browser where the probe passed before", () => {
+  const savedVerification = (): WebGpuVerification | null =>
+    JSON.parse(window.localStorage.getItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY) ?? "null") as WebGpuVerification | null;
+  const verify = (host: RendererBootstrapHost, changes: Partial<WebGpuVerification> = {}) => window.localStorage.setItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY,
+    JSON.stringify({ antialias: true, adaptToDeviceRatio: true, userAgent: host.userAgent(), at: host.now() - 60_000, ...changes }));
+  const start = async (host: RendererBootstrapHost, canvas = document.createElement("canvas"), antialias = true) => {
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
+    const { renderer } = await bootstrapRenderer(canvas, { host, antialias });
+    return { renderer, probed: vi.mocked(probeWebGpuPresentation).mock.calls.length };
+  };
+
+  it("saves the options the probe passed with, in which browser and when", async () => {
+    const host = createBrowserRendererHost();
+    const before = host.now();
+    await start(host);
+    expect(savedVerification()).toEqual({ antialias: true, adaptToDeviceRatio: true, userAgent: window.navigator.userAgent, at: expect.any(Number) as number });
+    expect(savedVerification()!.at).toBeGreaterThanOrEqual(before);
+  });
+
+  it("starts on the page's canvas without the probe, and watches its first frames instead", async () => {
+    const host = createBrowserRendererHost();
+    verify(host);
+    const canvas = document.createElement("canvas");
+    const { renderer, probed } = await start(host, canvas);
+    expect(probed).toBe(0);
+    expect(renderer).toMatchObject({ mode: "webgpu", antialias: true, devicePixels: true, diagnostics: { probeSkipped: true } });
+    expect(mockState.webGpuCtor.mock.calls.map(([target]) => target)).toEqual([canvas]);
+    expect(mockState.watches).toHaveLength(1);
+  });
+
+  it("starts with the safe options a probe could only pass with", async () => {
+    const host = createBrowserRendererHost();
+    verify(host, { antialias: false, adaptToDeviceRatio: false });
+    const { renderer, probed } = await start(host);
+    expect(probed).toBe(0);
+    expect(renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: false });
+  });
+
+  it.each([
+    ["another browser", { userAgent: "Another/1.0" }],
+    ["more than 30 days ago", { at: Date.now() - RENDERER_WEBGPU_VERIFIED_MS - 1 }],
+    ["in the future", { at: Date.now() + 60_000 }],
+    ["with options no start uses", { antialias: true, adaptToDeviceRatio: false }],
+  ])("probes again where the probe passed %s", async (_when, changes) => {
+    const host = createBrowserRendererHost();
+    verify(host, changes);
+    const { renderer, probed } = await start(host);
+    expect(probed).toBe(1);
+    expect(renderer.diagnostics?.probeSkipped).toBeUndefined();
+  });
+
+  it("probes again where the probe passed with antialiasing, which renderer.antialias now turns off", async () => {
+    const host = createBrowserRendererHost();
+    verify(host);
+    const { renderer, probed } = await start(host, undefined, false);
+    expect(probed).toBe(1);
+    expect(renderer.antialias).toBe(false);
+  });
+
+  it("forgets the passed probe and starts the page again when the canvas cannot present", async () => {
+    const reload = vi.fn();
+    const report = vi.fn();
+    const host = { ...createBrowserRendererHost(), reload, report };
+    verify(host);
+    await start(host);
+    expect(reload).not.toHaveBeenCalled();
+    mockState.watches[0]!(["Invalid Texture: importMemory failed"]);
+    expect(savedVerification()).toBeNull();
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("Starting again with the presentation probe"), { errors: ["Invalid Texture: importMemory failed"] });
+  });
+
+  it("probes on every start for a host without the ports", async () => {
+    const host = { ...createBrowserRendererHost(), readVerification: undefined, saveVerification: undefined };
+    expect((await start(host)).probed).toBe(1);
+    expect((await start(host)).probed).toBe(2);
+  });
+
+  it("is forgotten with the preference when the Renderer tab goes back to Auto-detect", async () => {
+    const host = createBrowserRendererHost();
+    verify(host);
+    const { applyRendererChoice } = await import("../src/babylon/browserRenderer.js");
+    applyRendererChoice(null, { set: vi.fn() }, { href: "https://example.test/app/", assign: vi.fn() }, window.localStorage);
+    expect(savedVerification()).toBeNull();
   });
 });
 

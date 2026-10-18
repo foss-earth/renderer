@@ -9,6 +9,8 @@ export interface RendererDiagnostics {
   fallbackSavedAt?: number;
   /** WebGL was chosen without trying WebGPU, because the device needs it, such as a VR headset. */
   webGlRequired?: boolean;
+  /** WebGPU started without the presentation probe, which passed in this browser before. */
+  probeSkipped?: boolean;
 }
 
 /** Pure selection data; a backend adapter supplies the concrete engine type. */

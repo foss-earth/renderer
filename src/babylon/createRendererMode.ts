@@ -1,9 +1,9 @@
 import { Engine, Scene, type EngineOptions, WebGPUEngine } from "@babylonjs/core";
 import { RecoverableWebGpuEngine } from "./recoverableWebGpuEngine.js";
 
-import { probeWebGpuPresentation, type WebGpuPresentationProbeOptions } from "./webgpuPresentationProbe.js";
+import { probeWebGpuPresentation, watchWebGpuPresentation, type WebGpuPresentationProbeOptions } from "./webgpuPresentationProbe.js";
 import type { RendererMode, RendererDiagnostics, RendererSelection as GenericRendererSelection, RendererModeOptions } from "../rendererTypes.js";
-import { staleFallbackReason, type RendererFallback } from "../rendererPreference.js";
+import { staleFallbackReason, webGpuVerificationHolds, type RendererFallback, type WebGpuVerification } from "../rendererPreference.js";
 import type { ShaderChunkLanguage } from "../shaderChunks.js";
 export type { RendererMode, RendererDiagnostics, RendererModeOptions } from "../rendererTypes.js";
 export type RendererSelection = GenericRendererSelection<Engine | WebGPUEngine>;
@@ -16,6 +16,14 @@ export interface RendererBootstrapHost {
   /** Why WebGPU last failed here, so that automatic mode need not wait for it again until that may have changed. */
   readFallback(): RendererFallback | null;
   saveFallback(fallback: RendererFallback | null): void;
+  /**
+   * The options WebGPU presented with in a passed probe, so that a start in the same browser skips the probe, and
+   * watches the page's canvas for the same errors instead. A host without these ports probes on every start.
+   */
+  readVerification?(): WebGpuVerification | null;
+  saveVerification?(verification: WebGpuVerification | null): void;
+  /** Starts the page again, when WebGPU fails on the page's canvas after a skipped probe. Without it the page stays as it is. */
+  reload?(): void;
   /** The browser's user agent: an update may fix WebGPU. */
   userAgent(): string;
   /** Milliseconds since 1970. */
@@ -206,6 +214,40 @@ function createWebGlBootstrap(
   };
 }
 
+/** The attempt a passed probe in this browser vouches for, or null to probe. */
+function verifiedOptions(host: RendererBootstrapHost, attempts: WebGpuEngineOptions[]): WebGpuEngineOptions | null {
+  let verification: WebGpuVerification | null = null;
+  try { verification = host.readVerification?.() ?? null; } catch { /* probe */ }
+  if (!verification || !webGpuVerificationHolds(verification, { userAgent: host.userAgent(), at: host.now() })) return null;
+  return attempts.find(options => options.antialias === verification.antialias && options.adaptToDeviceRatio === verification.adaptToDeviceRatio) ?? null;
+}
+
+/**
+ * Starts WebGPU on the page's canvas without the probe, which passed in this browser before and costs several
+ * frames and a pause. If the canvas shows a presentation error in its first frames, the passed probe is forgotten
+ * and the page starts again, to probe and if need be fall back to WebGL, which this canvas can no longer give.
+ */
+async function startVerifiedWebGpu(
+  canvas: HTMLCanvasElement,
+  host: RendererBootstrapHost,
+  requested: RendererMode | "auto",
+  diagnostics: RendererDiagnostics,
+  options: WebGpuEngineOptions,
+): Promise<{ renderer: RendererSelection; scene: Scene }> {
+  const engine = await createWebGpuEngine(canvas, options, host);
+  host.report?.("info", "[renderer] WebGPU presented in this browser before; starting without the presentation probe.");
+  watchWebGpuPresentation(engine, host.presentation, errors => {
+    host.report?.("warn", "[renderer] WebGPU cannot present on this page's canvas. Starting again with the presentation probe.", { errors });
+    try { host.saveVerification?.(null); } catch { /* the reload probes only if this is forgotten */ }
+    host.reload?.();
+  });
+  return {
+    renderer: { requested, mode: "webgpu", engine, diagnostics: { ...diagnostics, probeSkipped: true },
+      antialias: options.antialias, devicePixels: options.adaptToDeviceRatio },
+    scene: createRendererScene(engine),
+  };
+}
+
 async function initializeWebGpuRenderer(
   canvas: HTMLCanvasElement,
   host: RendererBootstrapHost,
@@ -214,6 +256,8 @@ async function initializeWebGpuRenderer(
   antialias: boolean,
 ): Promise<{ renderer: RendererSelection; scene: Scene }> {
   const attempts: WebGpuEngineOptions[] = [{ ...DEFAULT_WEBGPU_OPTIONS, antialias }, SAFE_WEBGPU_OPTIONS];
+  const verified = verifiedOptions(host, attempts);
+  if (verified) return startVerifiedWebGpu(canvas, host, requested, diagnostics, verified);
   let lastError = "";
 
   for (let attempt = 0; attempt < attempts.length; attempt += 1) {
@@ -223,6 +267,7 @@ async function initializeWebGpuRenderer(
     if (probe.ok) {
       const engine = await createWebGpuEngine(canvas, options, host);
       persistWorkingRenderer("webgpu", host);
+      try { host.saveVerification?.({ ...options, userAgent: host.userAgent(), at: host.now() }); } catch { /* the next start probes again */ }
       try { host.saveFallback(null); } catch { /* persistence must not prevent a working backend */ }
       return {
         renderer: {

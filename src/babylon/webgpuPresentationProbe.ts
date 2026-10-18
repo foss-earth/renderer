@@ -112,3 +112,43 @@ export async function probeWebGpuPresentation(
     device?.removeEventListener("uncapturederror", onUncapturedError);
   }
 }
+
+/**
+ * Watches the first frames a WebGPU engine draws on the page's canvas for the presentation errors the probe
+ * looks for, where a start skipped the probe. Other errors are the scene's, not the canvas's, and do not count.
+ * It stops after the probe's number of frames and its settle wait, when the engine is disposed, or when called.
+ */
+export function watchWebGpuPresentation(
+  engine: WebGPUEngine,
+  options: WebGpuPresentationProbeOptions,
+  onFailure: (errors: string[]) => void,
+): () => void {
+  const policy = options.policy ?? defaultPresentationProbePolicy;
+  const device = getGpuDevice(engine);
+  if (!device) return () => {};
+  let stopped = false;
+  let frames = 0;
+  const onUncapturedError: EventListener = (event): void => {
+    const gpuError = (event as PresentationErrorEvent).error;
+    const message = gpuError?.message ?? String(gpuError);
+    if (!isWebGpuPresentationError(message)) return;
+    stop();
+    onFailure([message]);
+  };
+  const endFrame = engine.onEndFrameObservable.add(() => {
+    frames += 1;
+    if (frames < policy.frames) return;
+    engine.onEndFrameObservable.remove(endFrame);
+    void waitForPresentationErrors(options, policy).then(stop, stop);
+  });
+  const disposed = engine.onDisposeObservable.addOnce(() => stop());
+  function stop(): void {
+    if (stopped) return;
+    stopped = true;
+    device!.removeEventListener("uncapturederror", onUncapturedError);
+    engine.onEndFrameObservable.remove(endFrame);
+    engine.onDisposeObservable.remove(disposed);
+  }
+  device.addEventListener("uncapturederror", onUncapturedError);
+  return stop;
+}

@@ -1,4 +1,7 @@
-import { readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, type RendererPreferenceStorage } from "../rendererPreference.js";
+import {
+  readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback,
+  readWebGpuVerification, saveWebGpuVerification, type RendererPreferenceStorage,
+} from "../rendererPreference.js";
 import type { RendererMode, RendererModeOptions } from "../rendererTypes.js";
 import { SHADER_CHUNKS_ELEMENT_ID, type ShaderChunkLanguage } from "../shaderChunks.js";
 import { bootstrapRenderer, type RendererBootstrapHost } from "./createRendererMode.js";
@@ -28,6 +31,8 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
     savePreference: mode => saveRendererPreference(mode, storage),
     readFallback: () => readRendererFallback(storage),
     saveFallback: fallback => saveRendererFallback(fallback, storage),
+    readVerification: () => readWebGpuVerification(storage),
+    saveVerification: verification => saveWebGpuVerification(verification, storage),
     userAgent: () => browserWindow.navigator.userAgent ?? "",
     now: () => Date.now(),
     createProbeCanvas: () => browserDocument.createElement("canvas"),
@@ -40,6 +45,7 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
     },
     webGlRequirement: () => immersiveVrRequirement(browserWindow),
     preloadShaders: language => preloadShaderChunk(browserDocument, language),
+    reload: () => browserWindow.location.reload(),
     report: options.report,
   };
 }

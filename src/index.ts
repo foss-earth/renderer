@@ -9,9 +9,11 @@ export type { RendererIdentity, RendererGeneration, ResourceDescriptor, Renderer
 export type { RendererMode, RendererDiagnostics, RendererSelection, RendererModeOptions } from "./rendererTypes.js";
 export {
   RENDERER_PREFERENCE_STORAGE_KEY, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_FALLBACK_RETRY_MS,
+  RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, RENDERER_WEBGPU_VERIFIED_MS,
   readRendererPreference, saveRendererPreference, clearRendererPreference, readRendererFallback, saveRendererFallback, staleFallbackReason,
+  readWebGpuVerification, saveWebGpuVerification, webGpuVerificationHolds,
 } from "./rendererPreference.js";
-export type { RendererPreferenceStorage, RendererFallback, RendererFallbackFacts } from "./rendererPreference.js";
+export type { RendererPreferenceStorage, RendererFallback, RendererFallbackFacts, WebGpuVerification } from "./rendererPreference.js";
 export { describeRendererStart, getRendererLabel } from "./rendererStartNote.js";
 export type { RendererStartNote } from "./rendererStartNote.js";
 export * from "./profiling/index.js";

@@ -17,13 +17,23 @@ export interface RendererBootstrapHost {
   readFallback(): RendererFallback | null;
   saveFallback(fallback: RendererFallback | null): void;
   /**
-   * The options WebGPU presented with in a passed probe, so that a start in the same browser skips the probe, and
-   * watches the page's canvas for the same errors instead. A host without these ports probes on every start.
+   * The WebGPU options this browser starts with: in automatic mode those saved before a start on the page's canvas,
+   * which presented or are the next to try, and with WebGPU chosen those a passed probe vouches for. A start skips
+   * the probe for them, and watches the page's canvas for the same errors instead. A host without these ports and
+   * `reload` probes on every start.
    */
   readVerification?(): WebGpuVerification | null;
   saveVerification?(verification: WebGpuVerification | null): void;
-  /** Starts the page again, when WebGPU fails on the page's canvas after a skipped probe. Without it the page stays as it is. */
+  /**
+   * Starts the page again when WebGPU fails on the page's canvas, which can then give no WebGL context, so that the
+   * next start begins as saved. Without it automatic mode probes first, and a failure after a skipped probe stays.
+   */
   reload?(): void;
+  /**
+   * Whether the browser offers a WebGPU adapter, where the page asked before the renderer loaded, as a page built
+   * with `babylonShaderChunks()` does (docs/vite.md); or null, and the bootstrap asks then.
+   */
+  earlyWebGpuSupport?(): Promise<boolean> | null;
   /** The browser's user agent: an update may fix WebGPU. */
   userAgent(): string;
   /** Milliseconds since 1970. */
@@ -111,13 +121,44 @@ function persistWorkingRenderer(mode: RendererMode | null, host: RendererBootstr
   try { host.savePreference(mode); } catch { /* persistence must not prevent a working backend */ }
 }
 
-/** Remembers why WebGPU failed, with what was true then, in place of a preference for WebGL. */
-function persistFallback(mode: "webgl2" | "webgl", reason: string, host: RendererBootstrapHost): void {
+/**
+ * Remembers why WebGPU failed, with what was true then, in place of a preference for WebGL, and forgets the WebGPU
+ * options saved for this browser. Returns the fallback saved, or null where storage refused it.
+ */
+function persistFallback(mode: "webgl2" | "webgl", reason: string, host: RendererBootstrapHost): RendererFallback | null {
   try {
     const { navigatorGpuPresent, isSecureContext } = host.diagnostics();
-    host.saveFallback({ mode, reason, at: host.now(), navigatorGpuPresent, isSecureContext, userAgent: host.userAgent() });
+    const fallback: RendererFallback = { mode, reason, at: host.now(), navigatorGpuPresent, isSecureContext, userAgent: host.userAgent() };
+    host.saveFallback(fallback);
     host.savePreference(null);
-  } catch { /* persistence must not prevent a working backend */ }
+    host.saveVerification?.(null);
+    return fallback;
+  } catch { return null; /* persistence must not prevent a working backend */ }
+}
+
+/**
+ * Saves the options the next start on the page's canvas tries, and reads them back. Where storage does not keep
+ * them, a failure could not be remembered across a reload, which would then start the same way again.
+ */
+function rememberStart(options: WebGpuEngineOptions, host: RendererBootstrapHost): boolean {
+  const verification: WebGpuVerification = { antialias: options.antialias, adaptToDeviceRatio: options.adaptToDeviceRatio,
+    userAgent: host.userAgent(), at: host.now() };
+  try {
+    host.saveVerification?.(verification);
+    const saved = host.readVerification?.() ?? null;
+    return saved !== null && saved.antialias === verification.antialias && saved.adaptToDeviceRatio === verification.adaptToDeviceRatio
+      && saved.userAgent === verification.userAgent && saved.at === verification.at;
+  } catch { return false; }
+}
+
+/** Saves WebGL as the fallback for the next start, and reads it back, as rememberStart does. */
+function rememberFallback(reason: string, host: RendererBootstrapHost): boolean {
+  const fallback = persistFallback("webgl2", reason, host);
+  if (!fallback) return false;
+  try {
+    const saved = host.readFallback();
+    return saved !== null && saved.at === fallback.at && saved.reason === fallback.reason;
+  } catch { return false; }
 }
 
 function applyCanvasDimensions(
@@ -223,9 +264,10 @@ function verifiedOptions(host: RendererBootstrapHost, attempts: WebGpuEngineOpti
 }
 
 /**
- * Starts WebGPU on the page's canvas without the probe, which passed in this browser before and costs several
- * frames and a pause. If the canvas shows a presentation error in its first frames, the passed probe is forgotten
- * and the page starts again, to probe and if need be fall back to WebGL, which this canvas can no longer give.
+ * Starts WebGPU on the page's canvas without the probe, with options that presented in this browser before; the
+ * probe costs several frames and a pause. If the canvas shows a presentation error in its first frames, the options
+ * are forgotten and the page starts again, to probe and if need be fall back to WebGL, which this canvas can no
+ * longer give.
  */
 async function startVerifiedWebGpu(
   canvas: HTMLCanvasElement,
@@ -243,6 +285,48 @@ async function startVerifiedWebGpu(
   });
   return {
     renderer: { requested, mode: "webgpu", engine, diagnostics: { ...diagnostics, probeSkipped: true },
+      antialias: options.antialias, devicePixels: options.adaptToDeviceRatio },
+    scene: createRendererScene(engine),
+  };
+}
+
+/**
+ * Starts WebGPU on the page's canvas in automatic mode without the probe, which would cost several frames and a
+ * pause, and watches its first frames for the probe's errors instead. A failure cannot fall back on this canvas,
+ * which can no longer give a WebGL context, so it saves what the next start tries, the safe options and then WebGL,
+ * and starts the page again. Returns null where that could not be remembered, for the probe to decide.
+ */
+async function startWatchedWebGpu(
+  canvas: HTMLCanvasElement,
+  host: RendererBootstrapHost,
+  diagnostics: RendererDiagnostics,
+  antialias: boolean,
+): Promise<{ renderer: RendererSelection; scene: Scene } | null> {
+  if (!host.reload || !host.readVerification || !host.saveVerification) return null;
+  const attempts: WebGpuEngineOptions[] = [{ ...DEFAULT_WEBGPU_OPTIONS, antialias }, SAFE_WEBGPU_OPTIONS];
+  // Options saved by an earlier start were read back then, and have been kept since.
+  let options = verifiedOptions(host, attempts);
+  if (!options) {
+    options = attempts[0]!;
+    if (!rememberStart(options, host)) return null;
+  }
+  const next = attempts[attempts.indexOf(options) + 1];
+  const engine = await createWebGpuEngine(canvas, options, host);
+  watchWebGpuPresentation(engine, host.presentation, errors => {
+    if (!(next ? rememberStart(next, host) : rememberFallback(errors[0] ?? "WebGPU presentation failed", host))) {
+      host.report?.("warn", "[renderer] WebGPU cannot present on this page's canvas, and this browser keeps no record to start otherwise.", { errors });
+      return;
+    }
+    host.report?.("warn", next
+      ? "[renderer] WebGPU cannot present on this page's canvas. Starting again with antialias=false and adaptToDeviceRatio=false."
+      : "[renderer] WebGPU cannot present on this device. Starting again with WebGL.", { errors });
+    host.reload!();
+  }, () => {
+    persistWorkingRenderer("webgpu", host);
+    try { host.saveFallback(null); } catch { /* persistence must not prevent a working backend */ }
+  });
+  return {
+    renderer: { requested: "auto", mode: "webgpu", engine, diagnostics: { ...diagnostics, probeSkipped: true },
       antialias: options.antialias, devicePixels: options.adaptToDeviceRatio },
     scene: createRendererScene(engine),
   };
@@ -301,15 +385,23 @@ async function initializeWebGpuRenderer(
   return createWebGlBootstrap(canvas, host, requested, antialias, lastError, diagnostics);
 }
 
+/** Whether the browser offers a WebGPU adapter: from the page's early request where it made one, or asked now. */
+function webGpuSupport(host: RendererBootstrapHost): Promise<boolean> {
+  let early: Promise<boolean> | null = null;
+  try { early = host.earlyWebGpuSupport?.() ?? null; } catch { /* asked now */ }
+  return early ?? WebGPUEngine.IsSupportedAsync;
+}
+
 async function tryWebGpuBootstrap(
   canvas: HTMLCanvasElement,
   host: RendererBootstrapHost,
   requested: RendererMode | "auto",
   diagnostics: RendererDiagnostics,
   antialias: boolean,
+  probeFirst: boolean,
 ): Promise<{ renderer: RendererSelection; scene: Scene }> {
   try {
-    const isSupported = await WebGPUEngine.IsSupportedAsync;
+    const isSupported = await webGpuSupport(host);
     diagnostics.isSupportedAsyncResult = isSupported;
     if (requested === "webgpu") {
       host.report?.("log", `[renderer] WebGPUEngine.IsSupportedAsync: ${isSupported}`);
@@ -326,18 +418,30 @@ async function tryWebGpuBootstrap(
     }
 
     preloadShaders(host, "wgsl");
-    return await initializeWebGpuRenderer(canvas, host, requested, diagnostics, antialias);
+    const watched = probeFirst ? null : await startWatchedWebGpu(canvas, host, diagnostics, antialias);
+    return watched ?? await initializeWebGpuRenderer(canvas, host, requested, diagnostics, antialias);
   } catch (error) {
     const reason = getErrorMessage(error);
     host.report?.("warn", "[renderer] WebGPU initialization failed. Falling back to WebGL.", error);
     diagnostics.isSupportedAsyncResult ??= false;
-    return createWebGlBootstrap(canvas, host, requested, antialias, reason, diagnostics);
+    try {
+      return createWebGlBootstrap(canvas, host, requested, antialias, reason, diagnostics);
+    } catch (webGlError) {
+      // WebGPU failed after it took the canvas, which then gives no WebGL context. Started again, the page uses WebGL.
+      if (requested === "auto" && host.reload && rememberFallback(reason, host)) {
+        host.report?.("warn", "[renderer] WebGL cannot start on a canvas WebGPU has used. Starting again with WebGL.", webGlError);
+        host.reload();
+      }
+      throw webGlError;
+    }
   }
 }
 
 /**
- * Pick a renderer, create the real runtime scene, and verify WebGPU can present
- * on an offscreen canvas before the runtime canvas is touched.
+ * Pick a renderer and create the real runtime scene. In automatic mode WebGPU starts on the runtime canvas, and a
+ * failure in its first frames is saved and the page started again (startWatchedWebGpu). With WebGPU chosen, after
+ * a saved fallback, and where a failure could not be remembered, a probe on an offscreen canvas first verifies that
+ * WebGPU can present, before the runtime canvas is touched.
  */
 export async function bootstrapRenderer(
   canvas: HTMLCanvasElement,
@@ -353,7 +457,7 @@ export async function bootstrapRenderer(
       `[renderer] Forced WebGPU requested. navigator.gpu present: ${diagnostics.navigatorGpuPresent}, isSecureContext: ${diagnostics.isSecureContext}`,
       diagnostics,
     );
-    return tryWebGpuBootstrap(canvas, host, "webgpu", diagnostics, antialias);
+    return tryWebGpuBootstrap(canvas, host, "webgpu", diagnostics, antialias, true);
   }
 
   if (force === "webgl2" || force === "webgl") {
@@ -398,6 +502,8 @@ export async function bootstrapRenderer(
   }
   let fallback: RendererFallback | null = null;
   try { fallback = host.readFallback(); } catch { /* use normal detection if storage is unavailable */ }
+  // WebGPU failed here before and may again, so the probe decides, rather than a failure that starts the page again.
+  const retry = fallback !== null;
   if (fallback) {
     const diagnostics = getRendererDiagnostics(host);
     const stale = staleFallbackReason(fallback, { ...diagnostics, userAgent: host.userAgent(), at: host.now() });
@@ -420,10 +526,10 @@ export async function bootstrapRenderer(
     return tryWebGpuBootstrap(canvas, host, "auto", {
       ...getRendererDiagnostics(host, null),
       fromPersistedPreference: true,
-    }, antialias);
+    }, antialias, retry);
   }
 
-  return tryWebGpuBootstrap(canvas, host, "auto", getRendererDiagnostics(host, null), antialias);
+  return tryWebGpuBootstrap(canvas, host, "auto", getRendererDiagnostics(host, null), antialias, retry);
 }
 
 /** @deprecated Use bootstrapRenderer; engine-only callers do not retain a hidden scene. */

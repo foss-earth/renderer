@@ -4,6 +4,7 @@ import {
 } from "../rendererPreference.js";
 import type { RendererMode, RendererModeOptions } from "../rendererTypes.js";
 import { SHADER_CHUNKS_ELEMENT_ID, type ShaderChunkLanguage } from "../shaderChunks.js";
+import { EARLY_WEBGPU_SUPPORT_GLOBAL } from "../earlyWebGpuSupport.js";
 import { bootstrapRenderer, type RendererBootstrapHost } from "./createRendererMode.js";
 import type { PresentationProbePolicy } from "./webgpuPresentationProbe.js";
 import type { RendererPlatformPort } from "./rendererLifecycle.js";
@@ -46,8 +47,18 @@ export function createBrowserRendererHost(options: BrowserRendererHostOptions = 
     webGlRequirement: () => immersiveVrRequirement(browserWindow),
     preloadShaders: language => preloadShaderChunk(browserDocument, language),
     reload: () => browserWindow.location.reload(),
+    earlyWebGpuSupport: () => takeEarlyWebGpuSupport(browserWindow),
     report: options.report,
   };
+}
+
+/** The adapter request a built page made while it parsed (babylonShaderChunks() in ../vite), taken once. */
+function takeEarlyWebGpuSupport(browserWindow: Window): Promise<boolean> | null {
+  const page = browserWindow as unknown as Record<string, unknown>;
+  const early = page[EARLY_WEBGPU_SUPPORT_GLOBAL] as PromiseLike<unknown> | undefined;
+  if (typeof early?.then !== "function") return null;
+  delete page[EARLY_WEBGPU_SUPPORT_GLOBAL];
+  return Promise.resolve(early).then(supported => supported === true, () => false);
 }
 
 /**

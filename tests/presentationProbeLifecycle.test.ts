@@ -55,10 +55,11 @@ describe("watching the page's canvas after a skipped probe", () => {
     let settle: () => void = () => {};
     const delay = vi.fn(() => new Promise<void>(resolve => { settle = resolve; }));
     const onFailure = vi.fn();
-    const stop = watchWebGpuPresentation(engine as unknown as WebGPUEngine, { nextFrame: async () => undefined, delay, policy }, onFailure);
+    const onClear = vi.fn();
+    const stop = watchWebGpuPresentation(engine as unknown as WebGPUEngine, { nextFrame: async () => undefined, delay, policy }, onFailure, onClear);
     const error = (message: string) => { for (const listener of [...listeners]) listener({ error: { message } } as unknown as Event); };
     const frame = () => engine.onEndFrameObservable.notifyObservers(null);
-    return { engine, listeners, delay, onFailure, stop, error, frame, settle: () => settle() };
+    return { engine, listeners, delay, onFailure, onClear, stop, error, frame, settle: () => settle() };
   }
   const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -92,6 +93,33 @@ describe("watching the page's canvas after a skipped probe", () => {
     late.error("swapchain lost");
     expect(late.onFailure).not.toHaveBeenCalled();
     expect(late.engine.onEndFrameObservable.hasObservers()).toBe(false);
+  });
+
+  it("says the canvas presented once its frames and settle wait pass without an error, and not otherwise", async () => {
+    const clear = watched();
+    clear.frame(); clear.frame();
+    await flush();
+    expect(clear.onClear).not.toHaveBeenCalled();
+    clear.settle();
+    await flush();
+    expect(clear.onClear).toHaveBeenCalledOnce();
+    const failed = watched();
+    failed.frame(); failed.frame();
+    await flush();
+    failed.error("swapchain lost");
+    failed.settle();
+    await flush();
+    expect(failed.onFailure).toHaveBeenCalledOnce();
+    expect(failed.onClear).not.toHaveBeenCalled();
+    for (const end of ["dispose", "stop"] as const) {
+      const ended = watched();
+      ended.frame(); ended.frame();
+      await flush();
+      if (end === "dispose") ended.engine.onDisposeObservable.notifyObservers(null); else ended.stop();
+      ended.settle();
+      await flush();
+      expect(ended.onClear).not.toHaveBeenCalled();
+    }
   });
 
   it("stops when the engine is disposed or when called", () => {

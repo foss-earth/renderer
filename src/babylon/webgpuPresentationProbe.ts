@@ -116,12 +116,14 @@ export async function probeWebGpuPresentation(
 /**
  * Watches the first frames a WebGPU engine draws on the page's canvas for the presentation errors the probe
  * looks for, where a start skipped the probe. Other errors are the scene's, not the canvas's, and do not count.
- * It stops after the probe's number of frames and its settle wait, when the engine is disposed, or when called.
+ * It stops after the probe's number of frames and its settle wait, and then calls `onClear`; or when the engine
+ * is disposed, or when called.
  */
 export function watchWebGpuPresentation(
   engine: WebGPUEngine,
   options: WebGpuPresentationProbeOptions,
   onFailure: (errors: string[]) => void,
+  onClear?: () => void,
 ): () => void {
   const policy = options.policy ?? defaultPresentationProbePolicy;
   const device = getGpuDevice(engine);
@@ -139,9 +141,14 @@ export function watchWebGpuPresentation(
     frames += 1;
     if (frames < policy.frames) return;
     engine.onEndFrameObservable.remove(endFrame);
-    void waitForPresentationErrors(options, policy).then(stop, stop);
+    void waitForPresentationErrors(options, policy).then(clear, stop);
   });
   const disposed = engine.onDisposeObservable.addOnce(() => stop());
+  function clear(): void {
+    if (stopped) return;
+    stop();
+    onClear?.();
+  }
   function stop(): void {
     if (stopped) return;
     stopped = true;

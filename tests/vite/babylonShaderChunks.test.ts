@@ -1,5 +1,7 @@
-import type { IndexHtmlTransformContext, Rolldown } from "vite";
-import { describe, expect, it } from "vitest";
+import type { HtmlTagDescriptor, IndexHtmlTransformContext, Rolldown } from "vite";
+import { describe, expect, it, vi } from "vitest";
+import { EARLY_WEBGPU_SUPPORT_GLOBAL } from "../../src/earlyWebGpuSupport.js";
+import { RENDERER_FALLBACK_STORAGE_KEY } from "../../src/rendererPreference.js";
 import { SHADER_CHUNKS_ELEMENT_ID } from "../../src/shaderChunks.js";
 import { BABYLON_SHADER_GROUPS, babylonShaderChunks } from "../../src/vite/index.js";
 
@@ -21,14 +23,19 @@ function chunk(fileName: string, name: string, imports: string[] = [], dynamicIm
   return { type: "chunk", fileName, name, imports, dynamicImports } as unknown as Rolldown.OutputChunk;
 }
 
+type PageTransform = HtmlTagDescriptor[] | { html: string; tags: HtmlTagDescriptor[] } | undefined;
+
 /** Runs the plugin's page transform for a page of a build with these chunks. */
-function transformPage(base: string, path: string, entry: string, chunks: Rolldown.OutputChunk[]): unknown {
+function transformPage(base: string, path: string, entry: string, chunks: Rolldown.OutputChunk[], html = "<html></html>"): PageTransform {
   const plugin = babylonShaderChunks();
   (plugin.configResolved as (config: { base: string }) => void)({ base });
   const bundle = Object.fromEntries(chunks.map(output => [output.fileName, output]));
   const ctx = { path, filename: `/site${path}`, bundle, chunk: bundle[entry] } as unknown as IndexHtmlTransformContext;
-  return (plugin.transformIndexHtml as (html: string, ctx: IndexHtmlTransformContext) => unknown)("<html></html>", ctx);
+  return (plugin.transformIndexHtml as (html: string, ctx: IndexHtmlTransformContext) => PageTransform)(html, ctx);
 }
+
+/** The tags a transform adds, whether it also changed the page or not. */
+const tagsOf = (result: PageTransform) => (Array.isArray(result) ? result : result?.tags);
 
 const page = [
   chunk("assets/index-a.js", "index", ["assets/vendor-b.js"], ["assets/scene-c.js"]),
@@ -118,23 +125,25 @@ describe("the page's names for its shader chunks", () => {
     injectTo: "head",
   }];
 
+  const charset = "<html><head><meta charset=\"utf-8\" /><title>Page</title></head><body></body></html>";
+
   it("names each language's chunk that the page's code can import, under an absolute base", () => {
-    expect(transformPage("/app/", "/index.html", "assets/index-a.js", page)).toEqual(named({
+    expect(tagsOf(transformPage("/app/", "/index.html", "assets/index-a.js", page, charset))).toEqual(named({
       glsl: "/app/assets/babylon-shaders-glsl-e.js",
       wgsl: "/app/assets/babylon-shaders-wgsl-f.js",
     }));
-    expect(transformPage("https://cdn.example/site", "/index.html", "assets/index-a.js", page)).toEqual(named({
+    expect(tagsOf(transformPage("https://cdn.example/site", "/index.html", "assets/index-a.js", page, charset))).toEqual(named({
       glsl: "https://cdn.example/site/assets/babylon-shaders-glsl-e.js",
       wgsl: "https://cdn.example/site/assets/babylon-shaders-wgsl-f.js",
     }));
   });
 
   it("names them relative to the page under a relative base", () => {
-    expect(transformPage("./", "/index.html", "assets/index-a.js", page)).toEqual(named({
+    expect(tagsOf(transformPage("./", "/index.html", "assets/index-a.js", page, charset))).toEqual(named({
       glsl: "./assets/babylon-shaders-glsl-e.js",
       wgsl: "./assets/babylon-shaders-wgsl-f.js",
     }));
-    expect(transformPage("", "/tour/minneapolis/index.html", "assets/index-a.js", page)).toEqual(named({
+    expect(tagsOf(transformPage("", "/tour/minneapolis/index.html", "assets/index-a.js", page, charset))).toEqual(named({
       glsl: "../../assets/babylon-shaders-glsl-e.js",
       wgsl: "../../assets/babylon-shaders-wgsl-f.js",
     }));
@@ -151,6 +160,44 @@ describe("the page's names for its shader chunks", () => {
   it("names only the language a page can reach", () => {
     const webgl = [chunk("assets/index-a.js", "index", [], ["assets/babylon-shaders-glsl-e.js"]), ...page.slice(4)];
     expect(transformPage("/", "/index.html", "assets/index-a.js", webgl)).toEqual(named({ glsl: "/assets/babylon-shaders-glsl-e.js" }));
+  });
+
+  it("asks a page that can draw with WebGPU for an adapter first thing, right after <meta charset>", () => {
+    const result = transformPage("/", "/index.html", "assets/index-a.js", page, charset) as { html: string; tags: HtmlTagDescriptor[] };
+    const script = result.html.match(/^<html><head><meta charset="utf-8" \/><script>(.+?)<\/script><title>Page<\/title>/)?.[1];
+    expect(script).toContain(EARLY_WEBGPU_SUPPORT_GLOBAL);
+    expect(script).toContain(JSON.stringify(RENDERER_FALLBACK_STORAGE_KEY));
+    // Without <meta charset> it goes first in the head.
+    const bare = transformPage("/", "/index.html", "assets/index-a.js", page) as { html: string; tags: HtmlTagDescriptor[] };
+    expect(bare.html).toBe("<html></html>");
+    expect(bare.tags[0]).toEqual({ tag: "script", children: script, injectTo: "head-prepend" });
+    // A page that can only reach GLSL draws with WebGL, and asks for nothing.
+    const webgl = [chunk("assets/index-a.js", "index", [], ["assets/babylon-shaders-glsl-e.js"]), ...page.slice(4)];
+    expect(Array.isArray(transformPage("/", "/index.html", "assets/index-a.js", webgl, charset))).toBe(true);
+  });
+
+  describe("the early adapter request, in the page", () => {
+    const script = (transformPage("/", "/index.html", "assets/index-a.js", page) as { tags: HtmlTagDescriptor[] }).tags[0]!.children as string;
+    const run = (navigator: object, storage: Partial<Storage>) => {
+      const page: Record<string, unknown> = {};
+      new Function("navigator", "localStorage", "window", script)(navigator, storage, page);
+      return page[EARLY_WEBGPU_SUPPORT_GLOBAL] as Promise<boolean> | undefined;
+    };
+    const empty = { getItem: () => null };
+
+    it("keeps whether an adapter came", async () => {
+      await expect(run({ gpu: { requestAdapter: async () => ({}) } }, empty)).resolves.toBe(true);
+      await expect(run({ gpu: { requestAdapter: async () => null } }, empty)).resolves.toBe(false);
+      await expect(run({ gpu: { requestAdapter: () => Promise.reject(new Error("lost")) } }, empty)).resolves.toBe(false);
+    });
+
+    it("asks nothing where the browser offers no WebGPU, or WebGL is saved as the fallback, and never throws", () => {
+      const requestAdapter = vi.fn(async () => ({}));
+      expect(run({}, empty)).toBeUndefined();
+      expect(run({ gpu: { requestAdapter } }, { getItem: key => (key === RENDERER_FALLBACK_STORAGE_KEY ? "{}" : null) })).toBeUndefined();
+      expect(requestAdapter).not.toHaveBeenCalled();
+      expect(run({ gpu: { requestAdapter } }, { getItem: () => { throw new Error("SecurityError"); } })).toBeUndefined();
+    });
   });
 
   it("escapes markup in the names", () => {

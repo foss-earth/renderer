@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBrowserRendererHost } from "../src/babylon/browserRenderer.js";
 import type { RendererBootstrapHost } from "../src/babylon/createRendererMode.js";
 import {
   RENDERER_FALLBACK_RETRY_MS, RENDERER_FALLBACK_STORAGE_KEY, RENDERER_PREFERENCE_STORAGE_KEY, RENDERER_WEBGPU_VERIFIED_MS,
   RENDERER_WEBGPU_VERIFIED_STORAGE_KEY, type RendererFallback, type WebGpuVerification,
 } from "../src/rendererPreference.js";
+import { EARLY_WEBGPU_SUPPORT_GLOBAL } from "../src/earlyWebGpuSupport.js";
 import { SHADER_CHUNKS_ELEMENT_ID } from "../src/shaderChunks.js";
 
 const mockState = vi.hoisted(() => ({
@@ -21,11 +22,12 @@ const mockState = vi.hoisted(() => ({
   webGlCtor: vi.fn(),
   webGlDispose: vi.fn(),
   webGl2Available: true,
+  webGlAvailable: true,
   probeOk: true,
   probeErrors: [] as string[],
   probeCalls: [] as unknown[],
   sceneDepthModes: [] as boolean[],
-  watches: [] as Array<(errors: string[]) => void>,
+  watches: [] as Array<{ fail: (errors: string[]) => void; clear?: () => void }>,
 }));
 
 vi.mock("@babylonjs/core", () => {
@@ -54,6 +56,7 @@ vi.mock("@babylonjs/core", () => {
     dispose = mockState.webGlDispose;
 
     constructor(canvas: HTMLCanvasElement, ...args: unknown[]) {
+      if (!mockState.webGlAvailable) throw new Error("WebGL not supported");
       const options = args[1] as { disableWebGL2Support?: boolean };
       this.webGLVersion = options?.disableWebGL2Support || !mockState.webGl2Available ? 1 : 2;
       mockState.webGlCtor(canvas, ...args);
@@ -115,8 +118,8 @@ vi.mock("../src/babylon/webgpuPresentationProbe.js", async (importOriginal) => {
         errors: mockState.probeErrors,
       };
     }),
-    watchWebGpuPresentation: vi.fn((_engine, _options, onFailure: (errors: string[]) => void) => {
-      mockState.watches.push(onFailure);
+    watchWebGpuPresentation: vi.fn((_engine, _options, onFailure: (errors: string[]) => void, onClear?: () => void) => {
+      mockState.watches.push({ fail: onFailure, clear: onClear });
       return () => {};
     }),
   };
@@ -133,6 +136,10 @@ vi.stubGlobal("localStorage", {
 });
 
 const savedFallback = (): RendererFallback | null => JSON.parse(window.localStorage.getItem(RENDERER_FALLBACK_STORAGE_KEY) ?? "null") as RendererFallback | null;
+const savedVerification = (): WebGpuVerification | null =>
+  JSON.parse(window.localStorage.getItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY) ?? "null") as WebGpuVerification | null;
+/** A browser host that cannot start the page again, so that automatic mode probes and falls back on the page. */
+const probing = (): RendererBootstrapHost => ({ ...createBrowserRendererHost(), reload: undefined });
 /** A fallback saved by this host a day ago, with what is true now. */
 function saveFallbackFrom(host: ReturnType<typeof createBrowserRendererHost>, changes: Partial<RendererFallback> = {}): RendererFallback {
   const fallback: RendererFallback = { mode: "webgl2", reason: "presentation probe failed", at: host.now() - 24 * 60 * 60 * 1000,
@@ -147,6 +154,7 @@ beforeEach(() => {
   _lsStore.clear();
   mockState.isSupportedAsync = true;
   mockState.webGl2Available = true;
+  mockState.webGlAvailable = true;
   mockState.probeOk = true;
   mockState.probeErrors = [];
   mockState.probeCalls = [];
@@ -174,7 +182,7 @@ describe("bootstrapGlobeRenderer", () => {
     const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
-    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
+    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: probing() });
 
     expect(renderer.requested).toBe("auto");
     expect(renderer.mode).toBe("webgl2");
@@ -196,6 +204,8 @@ describe("bootstrapGlobeRenderer", () => {
     const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { host: createBrowserRendererHost() });
     expect(renderer.mode).toBe("webgpu");
     expect(renderer.diagnostics?.fromPersistedPreference).toBeUndefined();
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
+    mockState.watches[0]!.clear!();
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
   });
 
@@ -217,13 +227,18 @@ describe("bootstrapGlobeRenderer", () => {
     ["navigator.gpu has appeared", { navigatorGpuPresent: false }, { navigatorGpuPresent: true }],
     ["the browser has changed", { userAgent: "Chrome/140" }, {}],
     ["three days have passed", { at: Date.now() - RENDERER_FALLBACK_RETRY_MS - 1 }, {}],
-  ] as const)("tries WebGPU again once %s, and forgets the fallback when it starts", async (_case, saved, now) => {
+  ] as const)("tries WebGPU again once %s, with the probe, and forgets the fallback when it starts", async (_case, saved, now) => {
     const browserHost = createBrowserRendererHost();
-    const host = { ...browserHost, diagnostics: () => ({ ...browserHost.diagnostics(), ...now }) };
+    const reload = vi.fn();
+    const host = { ...browserHost, reload, diagnostics: () => ({ ...browserHost.diagnostics(), ...now }) };
     saveFallbackFrom(host, saved);
     const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const { renderer } = await bootstrapGlobeRenderer(document.createElement("canvas"), { host });
     expect(renderer.mode).toBe("webgpu");
+    // WebGPU failed here before and may again: on this page, rather than after a reload.
+    expect(probeWebGpuPresentation).toHaveBeenCalledOnce();
+    expect(mockState.watches).toEqual([]);
     expect(savedFallback()).toBe(null);
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
   });
@@ -260,7 +275,7 @@ describe("bootstrapGlobeRenderer", () => {
     expect(safe.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: false });
   });
 
-  it("uses persisted WebGPU with a presentation probe", async () => {
+  it("uses persisted WebGPU without the presentation probe", async () => {
     window.localStorage.setItem(RENDERER_PREFERENCE_STORAGE_KEY, "webgpu");
     const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
@@ -269,8 +284,8 @@ describe("bootstrapGlobeRenderer", () => {
     const { renderer } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
 
     expect(renderer.mode).toBe("webgpu");
-    expect(renderer.diagnostics?.fromPersistedPreference).toBe(true);
-    expect(probeWebGpuPresentation).toHaveBeenCalled();
+    expect(renderer.diagnostics).toMatchObject({ fromPersistedPreference: true, probeSkipped: true });
+    expect(probeWebGpuPresentation).not.toHaveBeenCalled();
   });
 
   it("prefers WebGL2 over a persisted WebGPU choice where immersive VR is supported, without persisting it", async () => {
@@ -345,7 +360,7 @@ describe("bootstrapGlobeRenderer", () => {
     const { bootstrapGlobeRenderer } = await import("../src/babylon/createRendererMode.js");
     const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
     const canvas = document.createElement("canvas");
-    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: createBrowserRendererHost() });
+    const { renderer, scene } = await bootstrapGlobeRenderer(canvas, { host: probing() });
 
     expect(renderer.mode).toBe("webgpu");
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
@@ -406,7 +421,7 @@ describe("bootstrapGlobeRenderer", () => {
   it("keeps WebGL2 eligible for automatic fallback", async () => {
     mockState.probeOk = false;
     const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
-    const result = await bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost() });
+    const result = await bootstrapRenderer(document.createElement("canvas"), { host: probing() });
     expect(result.renderer.mode).toBe("webgl2");
     expect(mockState.webGlCtor.mock.calls.every(call => !(call[2] as { disableWebGL2Support?: boolean }).disableWebGL2Support)).toBe(true);
   });
@@ -424,7 +439,7 @@ describe("bootstrapGlobeRenderer", () => {
     mockState.webGl2Available = false;
     mockState.probeOk = false;
     const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
-    const result = await bootstrapRenderer(document.createElement("canvas"), { host: createBrowserRendererHost() });
+    const result = await bootstrapRenderer(document.createElement("canvas"), { host: probing() });
     expect(result.renderer).toMatchObject({ requested: "auto", mode: "webgl" });
     expect(savedFallback()?.mode).toBe("webgl");
     expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
@@ -454,7 +469,7 @@ describe("bootstrapGlobeRenderer", () => {
 
     it("GLSL too when WebGPU cannot present, and starts the backend if the preload throws", async () => {
       mockState.probeOk = false;
-      expect(await start()).toEqual({ mode: "webgl2", languages: ["wgsl", "glsl"] });
+      expect(await start({ host: probing() })).toEqual({ mode: "webgl2", languages: ["wgsl", "glsl"] });
       const host = { ...createBrowserRendererHost(), preloadShaders: () => { throw new Error("no document"); } };
       const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
       await expect(bootstrapRenderer(document.createElement("canvas"), { force: "webgl2", host })).resolves.toMatchObject({ renderer: { mode: "webgl2" } });
@@ -462,22 +477,21 @@ describe("bootstrapGlobeRenderer", () => {
   });
 });
 
-describe("a WebGPU start in a browser where the probe passed before", () => {
-  const savedVerification = (): WebGpuVerification | null =>
-    JSON.parse(window.localStorage.getItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY) ?? "null") as WebGpuVerification | null;
+describe("the WebGPU options saved for this browser", () => {
   const verify = (host: RendererBootstrapHost, changes: Partial<WebGpuVerification> = {}) => window.localStorage.setItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY,
     JSON.stringify({ antialias: true, adaptToDeviceRatio: true, userAgent: host.userAgent(), at: host.now() - 60_000, ...changes }));
-  const start = async (host: RendererBootstrapHost, canvas = document.createElement("canvas"), antialias = true) => {
+  const start = async (host: RendererBootstrapHost, canvas = document.createElement("canvas"), antialias = true, force?: "webgpu") => {
     const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
     const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
-    const { renderer } = await bootstrapRenderer(canvas, { host, antialias });
+    const { renderer } = await bootstrapRenderer(canvas, { host, antialias, force });
     return { renderer, probed: vi.mocked(probeWebGpuPresentation).mock.calls.length };
   };
 
-  it("saves the options the probe passed with, in which browser and when", async () => {
+  it("saves the options an automatic start tries before its first frame, in which browser and when", async () => {
     const host = createBrowserRendererHost();
     const before = host.now();
-    await start(host);
+    const { probed } = await start(host);
+    expect(probed).toBe(0);
     expect(savedVerification()).toEqual({ antialias: true, adaptToDeviceRatio: true, userAgent: window.navigator.userAgent, at: expect.any(Number) as number });
     expect(savedVerification()!.at).toBeGreaterThanOrEqual(before);
   });
@@ -493,7 +507,7 @@ describe("a WebGPU start in a browser where the probe passed before", () => {
     expect(mockState.watches).toHaveLength(1);
   });
 
-  it("starts with the safe options a probe could only pass with", async () => {
+  it("starts with the safe options saved after the default ones failed", async () => {
     const host = createBrowserRendererHost();
     verify(host, { antialias: false, adaptToDeviceRatio: false });
     const { renderer, probed } = await start(host);
@@ -506,33 +520,47 @@ describe("a WebGPU start in a browser where the probe passed before", () => {
     ["more than 30 days ago", { at: Date.now() - RENDERER_WEBGPU_VERIFIED_MS - 1 }],
     ["in the future", { at: Date.now() + 60_000 }],
     ["with options no start uses", { antialias: true, adaptToDeviceRatio: false }],
-  ])("probes again where the probe passed %s", async (_when, changes) => {
+  ])("starts with the default options again where the saved ones were saved %s", async (_when, changes) => {
     const host = createBrowserRendererHost();
-    verify(host, changes);
+    verify(host, { antialias: false, adaptToDeviceRatio: false, ...changes });
     const { renderer, probed } = await start(host);
-    expect(probed).toBe(1);
-    expect(renderer.diagnostics?.probeSkipped).toBeUndefined();
+    expect(probed).toBe(0);
+    expect(renderer).toMatchObject({ antialias: true, devicePixels: true });
+    expect(savedVerification()).toMatchObject({ antialias: true, adaptToDeviceRatio: true, userAgent: host.userAgent() });
   });
 
-  it("probes again where the probe passed with antialiasing, which renderer.antialias now turns off", async () => {
+  it("starts without antialiasing where renderer.antialias turns it off, though the saved options have it", async () => {
     const host = createBrowserRendererHost();
     verify(host);
     const { renderer, probed } = await start(host, undefined, false);
-    expect(probed).toBe(1);
-    expect(renderer.antialias).toBe(false);
+    expect(probed).toBe(0);
+    expect(renderer).toMatchObject({ antialias: false, devicePixels: true });
+    expect(savedVerification()).toMatchObject({ antialias: false, adaptToDeviceRatio: true });
   });
 
-  it("forgets the passed probe and starts the page again when the canvas cannot present", async () => {
-    const reload = vi.fn();
-    const report = vi.fn();
-    const host = { ...createBrowserRendererHost(), reload, report };
-    verify(host);
-    await start(host);
-    expect(reload).not.toHaveBeenCalled();
-    mockState.watches[0]!(["Invalid Texture: importMemory failed"]);
-    expect(savedVerification()).toBeNull();
-    expect(reload).toHaveBeenCalledTimes(1);
-    expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("Starting again with the presentation probe"), { errors: ["Invalid Texture: importMemory failed"] });
+  describe("with WebGPU chosen", () => {
+    it("probes, unless the saved options presented, and saves them when the probe passes", async () => {
+      const host = { ...createBrowserRendererHost(), reload: vi.fn() };
+      const first = await start(host, undefined, true, "webgpu");
+      expect(first.probed).toBe(1);
+      expect(savedVerification()).toMatchObject({ antialias: true, adaptToDeviceRatio: true });
+      const second = await start(host, undefined, true, "webgpu");
+      expect(second.probed).toBe(1);
+      expect(second.renderer.diagnostics?.probeSkipped).toBe(true);
+    });
+
+    it("forgets the saved options and starts the page again, to probe, when the canvas cannot present", async () => {
+      const reload = vi.fn();
+      const report = vi.fn();
+      const host = { ...createBrowserRendererHost(), reload, report };
+      verify(host);
+      await start(host, undefined, true, "webgpu");
+      expect(reload).not.toHaveBeenCalled();
+      mockState.watches[0]!.fail(["Invalid Texture: importMemory failed"]);
+      expect(savedVerification()).toBeNull();
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("Starting again with the presentation probe"), { errors: ["Invalid Texture: importMemory failed"] });
+    });
   });
 
   it("probes on every start for a host without the ports", async () => {
@@ -547,6 +575,143 @@ describe("a WebGPU start in a browser where the probe passed before", () => {
     const { applyRendererChoice } = await import("../src/babylon/browserRenderer.js");
     applyRendererChoice(null, { set: vi.fn() }, { href: "https://example.test/app/", assign: vi.fn() }, window.localStorage);
     expect(savedVerification()).toBeNull();
+  });
+});
+
+describe("an automatic WebGPU start on the page's canvas", () => {
+  const start = async (host: RendererBootstrapHost) => {
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    const { probeWebGpuPresentation } = await import("../src/babylon/webgpuPresentationProbe.js");
+    const { renderer } = await bootstrapRenderer(document.createElement("canvas"), { host });
+    return { renderer, probed: vi.mocked(probeWebGpuPresentation).mock.calls.length };
+  };
+  const importMemory = "Invalid Texture: importMemory failed";
+  const resolveTarget = '[Invalid TextureView "TextureView_SwapChain_ResolveTarget"] is invalid.';
+
+  it("saves WebGPU as working once its first frames present", async () => {
+    const host = { ...createBrowserRendererHost(), reload: vi.fn() };
+    await start(host);
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
+    mockState.watches[0]!.clear!();
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe("webgpu");
+    expect(savedFallback()).toBeNull();
+    expect(host.reload).not.toHaveBeenCalled();
+  });
+
+  it("starts the page again with the safe options, and then with WebGL, which it remembers", async () => {
+    const reload = vi.fn();
+    const report = vi.fn();
+    const host = { ...createBrowserRendererHost(), reload, report };
+
+    const first = await start(host);
+    expect(first.renderer).toMatchObject({ mode: "webgpu", antialias: true, devicePixels: true });
+    mockState.watches[0]!.fail([importMemory]);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(savedVerification()).toMatchObject({ antialias: false, adaptToDeviceRatio: false });
+    expect(savedFallback()).toBeNull();
+    expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("Starting again with antialias=false"), { errors: [importMemory] });
+
+    const second = await start(host);
+    expect(second.renderer).toMatchObject({ mode: "webgpu", antialias: false, devicePixels: false });
+    mockState.watches[1]!.fail([resolveTarget]);
+    expect(reload).toHaveBeenCalledTimes(2);
+    expect(savedVerification()).toBeNull();
+    expect(savedFallback()).toMatchObject({ mode: "webgl2", reason: resolveTarget, userAgent: host.userAgent() });
+    expect(window.localStorage.getItem(RENDERER_PREFERENCE_STORAGE_KEY)).toBe(null);
+    expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("Starting again with WebGL"), { errors: [resolveTarget] });
+
+    const third = await start(host);
+    expect(third.renderer).toMatchObject({ mode: "webgl2", fallbackReason: resolveTarget, diagnostics: { fromPersistedPreference: true } });
+    expect(mockState.webGpuInitAsync).toHaveBeenCalledTimes(2);
+    expect(third.probed).toBe(0);
+    expect(reload).toHaveBeenCalledTimes(2);
+  });
+
+  it("probes instead, and falls back on the page, where storage does not keep what it saves", async () => {
+    const reload = vi.fn();
+    const forgetful = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+    mockState.probeOk = false;
+    mockState.probeErrors = [importMemory];
+    const { renderer, probed } = await start({ ...createBrowserRendererHost({ storage: forgetful }), reload });
+    expect(probed).toBe(2);
+    expect(renderer).toMatchObject({ mode: "webgl2", fallbackReason: importMemory });
+    expect(mockState.watches).toEqual([]);
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("probes instead for a host that cannot start the page again", async () => {
+    const { probed, renderer } = await start(probing());
+    expect(probed).toBe(1);
+    expect(renderer.diagnostics?.probeSkipped).toBeUndefined();
+  });
+
+  it("stays on the page where the fallback could not be saved, as a reload would start the same way again", async () => {
+    const reload = vi.fn();
+    const report = vi.fn();
+    const host = { ...createBrowserRendererHost(), reload, report, saveFallback: () => { throw new Error("quota"); } };
+    window.localStorage.setItem(RENDERER_WEBGPU_VERIFIED_STORAGE_KEY,
+      JSON.stringify({ antialias: false, adaptToDeviceRatio: false, userAgent: host.userAgent(), at: host.now() - 60_000 }));
+    await start(host);
+    mockState.watches[0]!.fail([importMemory]);
+    expect(reload).not.toHaveBeenCalled();
+    expect(report).toHaveBeenCalledWith("warn", expect.stringContaining("keeps no record"), { errors: [importMemory] });
+  });
+
+  it("starts the page again with WebGL where WebGPU fails after taking the canvas, which then gives no WebGL", async () => {
+    mockState.webGpuInitAsync.mockRejectedValue(new Error("configure failed"));
+    mockState.webGlAvailable = false;
+    const reload = vi.fn();
+    const { bootstrapRenderer } = await import("../src/babylon/createRendererMode.js");
+    await expect(bootstrapRenderer(document.createElement("canvas"), { host: { ...createBrowserRendererHost(), reload } })).rejects.toThrow("WebGL not supported");
+    expect(reload).toHaveBeenCalledOnce();
+    expect(savedFallback()).toMatchObject({ reason: "configure failed" });
+    expect(savedVerification()).toBeNull();
+
+    _lsStore.clear();
+    await expect(bootstrapRenderer(document.createElement("canvas"), { force: "webgpu", host: { ...createBrowserRendererHost(), reload } })).rejects.toThrow("WebGL not supported");
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("falls back on the page where WebGPU fails before taking the canvas, and forgets the options it saved", async () => {
+    mockState.webGpuInitAsync.mockRejectedValueOnce("Could not retrieve a WebGPU adapter (adapter is null).");
+    const reload = vi.fn();
+    const { renderer } = await start({ ...createBrowserRendererHost(), reload });
+    expect(renderer).toMatchObject({ mode: "webgl2", fallbackReason: "Could not retrieve a WebGPU adapter (adapter is null)." });
+    expect(savedFallback()).toMatchObject({ reason: "Could not retrieve a WebGPU adapter (adapter is null)." });
+    expect(savedVerification()).toBeNull();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("asks the page's early adapter request, not Babylon, whether the browser offers WebGPU", async () => {
+    const earlyWebGpuSupport = vi.fn(() => Promise.resolve(false));
+    const { renderer } = await start({ ...createBrowserRendererHost(), reload: vi.fn(), earlyWebGpuSupport });
+    expect(earlyWebGpuSupport).toHaveBeenCalledOnce();
+    expect(renderer).toMatchObject({ mode: "webgl2", diagnostics: { isSupportedAsyncResult: false } });
+    expect(mockState.webGpuInitAsync).not.toHaveBeenCalled();
+    _lsStore.clear();
+    const asked = await start({ ...createBrowserRendererHost(), reload: vi.fn(), earlyWebGpuSupport: () => null });
+    expect(asked.renderer.mode).toBe("webgpu");
+  });
+});
+
+describe("the browser host's early adapter request", () => {
+  const page = window as unknown as Record<string, unknown>;
+  afterEach(() => { Reflect.deleteProperty(page, EARLY_WEBGPU_SUPPORT_GLOBAL); });
+
+  it("is taken once, as a promise of whether an adapter came", async () => {
+    page[EARLY_WEBGPU_SUPPORT_GLOBAL] = Promise.resolve(true);
+    const host = createBrowserRendererHost();
+    await expect(host.earlyWebGpuSupport!()).resolves.toBe(true);
+    expect(EARLY_WEBGPU_SUPPORT_GLOBAL in page).toBe(false);
+    expect(host.earlyWebGpuSupport!()).toBeNull();
+  });
+
+  it("is none where the page made none, or kept something else there", async () => {
+    expect(createBrowserRendererHost().earlyWebGpuSupport!()).toBeNull();
+    page[EARLY_WEBGPU_SUPPORT_GLOBAL] = true;
+    expect(createBrowserRendererHost().earlyWebGpuSupport!()).toBeNull();
+    page[EARLY_WEBGPU_SUPPORT_GLOBAL] = Promise.reject(new Error("lost"));
+    await expect(createBrowserRendererHost().earlyWebGpuSupport!()).resolves.toBe(false);
   });
 });
 

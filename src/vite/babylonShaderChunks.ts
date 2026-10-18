@@ -11,9 +11,12 @@
  *   otherwise get a chunk of its own.
  *
  * The page names both chunks in a JSON script, from which the renderer preloads the language it draws with as
- * soon as it knows it (src/babylon/browserRenderer.ts).
+ * soon as it knows it (src/babylon/browserRenderer.ts). A page that can reach the WGSL chunk can draw with WebGPU,
+ * and asks for its adapter first thing, while its modules load (src/earlyWebGpuSupport.ts).
  */
-import type { IndexHtmlTransformContext, Plugin, Rolldown } from "vite";
+import type { HtmlTagDescriptor, IndexHtmlTransformContext, Plugin, Rolldown } from "vite";
+import { EARLY_WEBGPU_SUPPORT_GLOBAL } from "../earlyWebGpuSupport.js";
+import { RENDERER_FALLBACK_STORAGE_KEY } from "../rendererPreference.js";
 import { SHADER_CHUNKS_ELEMENT_ID, type ShaderChunkLanguage } from "../shaderChunks.js";
 import { BABYLON_BARREL } from "./babylonBarrels.js";
 
@@ -75,18 +78,34 @@ function shaderChunks(ctx: IndexHtmlTransformContext): Partial<Record<ShaderChun
   return found;
 }
 
+/**
+ * Asks for a WebGPU adapter, unless WebGL is saved as this browser's fallback, and keeps whether one came for the
+ * renderer. It runs in every browser, so it is written for the oldest, and defines no names of its own.
+ */
+const EARLY_WEBGPU_SUPPORT_SCRIPT = `try{if(navigator.gpu&&!localStorage.getItem(${JSON.stringify(RENDERER_FALLBACK_STORAGE_KEY)}))`
+  + `window.${EARLY_WEBGPU_SUPPORT_GLOBAL}=navigator.gpu.requestAdapter().then(function(adapter){return!!adapter},function(){return!1})}catch(error){}`;
+
+/** The page with the early adapter request as its first script, right after <meta charset>, which must stay within the first 1024 bytes. */
+function withEarlyWebGpuSupport(html: string, tags: HtmlTagDescriptor[]): { html: string; tags: HtmlTagDescriptor[] } {
+  const charset = html.match(/<meta\s+charset=[^>]*>/i);
+  if (!charset) return { html, tags: [{ tag: "script", children: EARLY_WEBGPU_SUPPORT_SCRIPT, injectTo: "head-prepend" }, ...tags] };
+  const at = charset.index! + charset[0].length;
+  return { html: `${html.slice(0, at)}<script>${EARLY_WEBGPU_SUPPORT_SCRIPT}</script>${html.slice(at)}`, tags };
+}
+
 export function babylonShaderChunks(): Plugin {
   let base = "/";
   return {
     name: "foss-earth-babylon-shader-chunks",
     config: () => ({ build: { rolldownOptions: { output: { codeSplitting: { groups: BABYLON_SHADER_GROUPS } } } } }),
     configResolved(config) { base = config.base; },
-    transformIndexHtml(_html, ctx) {
+    transformIndexHtml(html, ctx) {
       const chunks = shaderChunks(ctx);
       if (!chunks.glsl && !chunks.wgsl) return;
       const prefix = pageBase(base, ctx.path);
       const urls = Object.fromEntries(Object.entries(chunks).map(([key, fileName]) => [key, prefix + fileName]));
-      return [{ tag: "script", attrs: { type: "application/json", id: SHADER_CHUNKS_ELEMENT_ID }, children: JSON.stringify(urls).replace(/</g, "\\u003c"), injectTo: "head" }];
+      const tags: HtmlTagDescriptor[] = [{ tag: "script", attrs: { type: "application/json", id: SHADER_CHUNKS_ELEMENT_ID }, children: JSON.stringify(urls).replace(/</g, "\\u003c"), injectTo: "head" }];
+      return chunks.wgsl ? withEarlyWebGpuSupport(html, tags) : tags;
     },
   };
 }

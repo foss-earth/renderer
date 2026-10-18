@@ -65,8 +65,20 @@ Each built page whose code can reach a language's chunk names it in the head:
 
 URLs follow the build's base, absolute or relative to the page. The dev server
 adds nothing.
+
+A page whose code can reach the WGSL chunk can draw with WebGPU, so its first
+script, right after `<meta charset>`, asks for a WebGPU adapter, unless WebGL is
+saved as this browser's fallback (`foss-earth:renderer-fallback`). It keeps the
+answer in `window.__fossEarthWebGpuSupport` as a promise of whether an adapter
+came. A browser's first adapter took 36–83 ms to come in fresh headless Chrome
+profiles, and the next ones 0.2–35 ms, so the first comes while the page's
+modules load. The browser host takes the promise once, in place of
+`WebGPUEngine.IsSupportedAsync`, which asks the same; Babylon's own request,
+when the engine starts, is then a later one. A page without the script, or a
+host without the `earlyWebGpuSupport` port, asks when the renderer starts.
+
 The renderer's bootstrap calls the host port `preloadShaders(language)` as soon
-as it knows the language: `"wgsl"` once `WebGPUEngine.IsSupportedAsync` succeeds,
+as it knows the language: `"wgsl"` once the browser offers a WebGPU adapter,
 `"glsl"` when it creates a WebGL engine. The browser host adds a
 `<link rel="modulepreload" crossorigin data-shaders="…">` for that URL, so the
 chunk downloads while the engine starts instead of when the first material

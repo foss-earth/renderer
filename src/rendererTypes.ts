@@ -9,7 +9,7 @@ export interface RendererDiagnostics {
   fallbackSavedAt?: number;
   /** WebGL was chosen without trying WebGPU, because the device needs it, such as a VR headset. */
   webGlRequired?: boolean;
-  /** WebGPU started without the presentation probe, which passed in this browser before. */
+  /** WebGPU started without the presentation probe; its first frames on the page's canvas are watched instead. */
   probeSkipped?: boolean;
 }
 

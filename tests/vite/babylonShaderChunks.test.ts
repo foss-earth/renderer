@@ -62,7 +62,7 @@ describe("public Babylon shader build support", () => {
     expect(groupOf("C:\\app\\node_modules\\@babylonjs\\core\\Engines\\shaderStore.js")).toBe("babylon-shader-store");
   });
 
-  it("leaves a shader that code imports statically with that code, also through other shaders", () => {
+  it("puts the shaders that code imports statically, also through other shaders, in one chunk that loads with that code", () => {
     const clear = `${core}ShadersWGSL/clearQuad.vertex.js`;
     const include = `${core}ShadersWGSL/ShadersInclude/clipPlaneVertex.js`;
     const lazy = `${core}ShadersWGSL/pbr.vertex.js`;
@@ -71,10 +71,11 @@ describe("public Babylon shader build support", () => {
       [include]: [clear, lazy],
       [lazy]: [],
     };
-    expect(groupOf(clear, importers)).toBeNull();
-    expect(groupOf(include, importers)).toBeNull();
+    expect(groupOf(clear, importers)).toBe("babylon-shaders-static");
+    expect(groupOf(include, importers)).toBe("babylon-shaders-static");
     expect(groupOf(lazy, importers)).toBe("babylon-shaders-wgsl");
-    expect(groupOf(`${core}Shaders/clearQuad.vertex.js`, { [`${core}Shaders/clearQuad.vertex.js`]: ["/app/src/exhaust.ts"] })).toBeNull();
+    const postprocess = `${core}Shaders/postprocess.vertex.js`;
+    expect(groupOf(postprocess, { [postprocess]: ["/app/src/exhaust.ts"] })).toBe("babylon-shaders-static");
   });
 
   it("does not count Babylon's index files, nor a cycle of shaders, as importing a shader statically", () => {
@@ -100,7 +101,7 @@ describe("public Babylon shader build support", () => {
     expect(typeof plugin.config).toBe("function");
     const config = (plugin.config as () => unknown)();
     expect(config).toEqual({ build: { rolldownOptions: { output: { codeSplitting: { groups: BABYLON_SHADER_GROUPS } } } } });
-    expect(BABYLON_SHADER_GROUPS.map(group => group.debugName ?? group.name)).toEqual(["babylon-shader-store", "babylon-shaders-glsl", "babylon-shaders-wgsl"]);
+    expect(BABYLON_SHADER_GROUPS.map(group => group.debugName ?? group.name)).toEqual(["babylon-shader-store", "babylon-shaders-static", "babylon-shaders-glsl", "babylon-shaders-wgsl"]);
   });
 
   it("classifies repeated module observations consistently", () => {

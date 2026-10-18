@@ -6,8 +6,9 @@
  *
  * - the shader store the shaders register in, which gets a chunk of its own: the code that compiles shaders
  *   imports it too, and with the store inside a language's chunk, that code would load the language;
- * - a shader that code outside the shader folders imports statically, such as the WebGPU engine's clear quad,
- *   which stays with that code.
+ * - the shaders that code outside the shader folders imports statically, such as the WebGPU engine's clear quad,
+ *   which load with that code, and share one chunk: other shaders import some of them too, and each would
+ *   otherwise get a chunk of its own.
  *
  * The page names both chunks in a JSON script, from which the renderer preloads the language it draws with as
  * soon as it knows it (src/babylon/browserRenderer.ts).
@@ -23,7 +24,7 @@ const CHUNKS: Record<string, ShaderChunkLanguage> = { "babylon-shaders-glsl": "g
  * Whether code outside the shader folders imports this shader statically, directly or through other shaders.
  * Babylon's index files do not count. With `babylonBarrels()` the build leaves them out; without it they import
  * every shader, and each language's chunk then loads with Babylon, as before this split.
- * A module the build leaves out still counts, which can only keep a shader out of its language's chunk.
+ * A module the build leaves out still counts, which can only move a shader to the chunk that loads with Babylon.
  */
 function importedStatically(id: string, graph: Rolldown.ChunkingContext, seen = new Set<string>()): boolean {
   if (seen.has(id)) return false;
@@ -32,9 +33,9 @@ function importedStatically(id: string, graph: Rolldown.ChunkingContext, seen = 
     !BABYLON_BARREL.test(importer) && (!SHADER.test(importer) || importedStatically(importer, graph, seen)));
 }
 
-function language(name: string, test: RegExp): Rolldown.CodeSplittingGroup {
+function shaders(name: string, test: RegExp, statically: boolean): Rolldown.CodeSplittingGroup {
   return {
-    name: (id, graph) => (importedStatically(id, graph) ? null : name),
+    name: (id, graph) => (importedStatically(id, graph) === statically ? name : null),
     debugName: name,
     test,
     // A shader's imports are the store and other shaders, each of which has its own place.
@@ -45,8 +46,9 @@ function language(name: string, test: RegExp): Rolldown.CodeSplittingGroup {
 /** The groups, by module path, for a host that supplies its own codeSplitting groups. */
 export const BABYLON_SHADER_GROUPS: Rolldown.CodeSplittingGroup[] = [
   { name: "babylon-shader-store", test: /[\\/]@babylonjs[\\/]core[\\/]Engines[\\/]shaderStore\.js$/ },
-  language("babylon-shaders-glsl", /[\\/]@babylonjs[\\/]core[\\/]Shaders[\\/]/),
-  language("babylon-shaders-wgsl", /[\\/]@babylonjs[\\/]core[\\/]ShadersWGSL[\\/]/),
+  shaders("babylon-shaders-static", SHADER, true),
+  shaders("babylon-shaders-glsl", /[\\/]@babylonjs[\\/]core[\\/]Shaders[\\/]/, false),
+  shaders("babylon-shaders-wgsl", /[\\/]@babylonjs[\\/]core[\\/]ShadersWGSL[\\/]/, false),
 ];
 
 /** A page's base for its files, as Vite writes it into the page: absolute, or relative to the page. */

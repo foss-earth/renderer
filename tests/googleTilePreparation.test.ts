@@ -21,9 +21,15 @@ function tile(count = 1): Extract<GooglePreparedTile, { supported: true }> {
 }
 const texture = async (scene: Scene) => RawTexture.CreateRGBATexture(new Uint8Array([255, 255, 255, 255]), 1, 1, scene);
 function environment() { const engine = new NullEngine(); const scene = new Scene(engine); return { engine, scene }; }
+const nodeExtras = (prepared: ReturnType<typeof tile>) => {
+  const extras = (prepared.metadata as { nodes?: { extras?: unknown }[] }).nodes?.[0]?.extras;
+  return extras ? { extras } : {};
+};
+/** What picking and Babylon read off each node: its own metadata and the loader's internal glTF pointers. */
+const records = (root: TransformNode) => root.getDescendants().map(node => [node.name, node.metadata, (node as TransformNode & { _internalMetadata?: unknown })._internalMetadata]);
 async function reference(scene: Scene, prepared: ReturnType<typeof tile>) {
   const p = prepared.primitives[0], bytes = new Uint8Array(64); bytes.set(new Uint8Array(p.positions.buffer)); bytes.set(new Uint8Array(p.uvs.buffer), 36); bytes.set([0, 1, 2], 60);
-  const json = { asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ name: prepared.nodeName, mesh: 0, matrix: Array.from(prepared.matrix) }],
+  const json = { asset: { version: "2.0" }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ name: prepared.nodeName, mesh: 0, matrix: Array.from(prepared.matrix), ...nodeExtras(prepared) }],
     meshes: [{ primitives: prepared.primitives.map(() => ({ attributes: { POSITION: 0, TEXCOORD_0: 1 }, indices: 2 })) }],
     buffers: [{ byteLength: 64, uri: `data:application/octet-stream;base64,${Buffer.from(bytes).toString("base64")}` }],
     bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: 36 }, { buffer: 0, byteOffset: 36, byteLength: 24 }, { buffer: 0, byteOffset: 60, byteLength: 3 }],
@@ -32,9 +38,10 @@ async function reference(scene: Scene, prepared: ReturnType<typeof tile>) {
 }
 describe("Google prepared Babylon consumer", () => {
   it("matches original glTF hierarchy, handedness, geometry and matrix operation order", async () => {
-    for (const rightHanded of [false, true]) for (const count of [1, 2]) {
+    for (const rightHanded of [false, true]) for (const count of [1, 2]) for (const extras of [true, false]) {
       const { engine, scene } = environment(); scene.useRightHandedSystem = rightHanded;
-      const prepared = tile(count), original = await reference(scene, prepared); original.addAllToScene();
+      const prepared = tile(count); if (!extras) (prepared.metadata as { nodes?: object[] }).nodes = [{}];
+      const original = await reference(scene, prepared); original.addAllToScene();
       const adjustment = Matrix.RotationX(.5), transform = Matrix.Translation(10, 20, 30);
       const actual = await createGooglePreparedContainer(scene, prepared, adjustment, transform, { createTexture: texture });
       const originalRoot = original.rootNodes[0] as TransformNode; originalRoot.rotationQuaternion = Quaternion.Identity();
@@ -49,6 +56,9 @@ describe("Google prepared Babylon consumer", () => {
         expect(Array.from(a[i].getVerticesData("uv")!)).toEqual(Array.from(b[i].getVerticesData("uv")!));
         expect(Array.from(a[i].getIndices()!)).toEqual(Array.from(b[i].getIndices()!)); expect(a[i].sideOrientation).toEqual(b[i].sideOrientation);
       }
+      // A tile's meshes say what the original loader's do, in the same places: a glTF pointer on a
+      // mesh's own metadata reads as a point of interest, and a twist over it would not hold the ground.
+      expect(records(actual.scene)).toEqual(records(originalRoot));
       expect(actual.scene.isEnabled()).toBe(false); expect(actual.metadata).toBe(prepared.metadata);
       const material = a[0].material as PBRMaterial;
       expect(material.unlit).toBe(true); expect(material.albedoColor.asArray()).toEqual([.2, .3, .4]); expect(material.alpha).toBe(.5);

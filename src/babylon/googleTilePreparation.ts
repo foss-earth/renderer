@@ -53,6 +53,16 @@ async function bitmapTexture(scene: Scene, primitive: GooglePreparedPrimitive, s
     });
   } catch (error) { texture?.dispose(); throw error; }
 }
+interface GltfRecord { gltf?: { pointers?: string[]; extras?: unknown } }
+/** Where the Babylon glTF loader records a node, mesh or material: its pointer in internal metadata,
+ * and its extras, if any, in `metadata.gltf.extras`. Picking reads `metadata`, so a pointer there
+ * would make a ground tile look like a point of interest. */
+function recordGltf(object: { metadata: GltfRecord | null; _internalMetadata?: GltfRecord }, pointer: string, extras?: unknown): void {
+  object.metadata = object.metadata || {};
+  const gltf = ((object._internalMetadata ||= {}).gltf ||= {});
+  (gltf.pointers ||= []).push(pointer);
+  if (extras && typeof extras === "object" && Object.keys(extras).length > 0) (object.metadata.gltf ||= {}).extras = extras;
+}
 export interface GooglePreparationOptions {
   /** Test/device port; must preserve sRGB, invertY:false and the supplied sampler. */
   createTexture?(scene: Scene, primitive: GooglePreparedPrimitive, sampler: GoogleTextureSampler, signal?: AbortSignal): Promise<Texture>;
@@ -87,13 +97,13 @@ export async function createGooglePreparedContainer(scene: Scene, tile: Extract<
     const node: TransformNode = tile.primitives.length === 1 ? new Mesh(name, scene) : new TransformNode(name, scene);
     node.parent = root; node.rotationQuaternion = Quaternion.Identity();
     if (node instanceof Mesh) container.meshes.push(node); else container.transformNodes.push(node);
-    node.metadata = { ...(metadata.nodes?.[0]?.extras ? { extras: metadata.nodes[0].extras } : {}), gltf: { pointers: ["/nodes/0"] } };
     Matrix.FromArray(tile.matrix).decompose(node.scaling, node.rotationQuaternion, node.position);
     const materials = new Map<number, PBRMaterial>();
     for (let index = 0; index < tile.primitives.length; index++) {
       const primitive = tile.primitives[index];
       const mesh: Mesh = node instanceof Mesh ? node : new Mesh(`${name}_primitive${index}`, scene);
       if (mesh !== node) { mesh.parent = node; container.meshes.push(mesh); }
+      recordGltf(mesh, `/meshes/0/primitives/${index}`);
       mesh.sideOrientation = scene.useRightHandedSystem ? Material.CounterClockWiseSideOrientation : Material.ClockWiseSideOrientation;
       const data = new VertexData(); data.positions = primitive.positions; data.uvs = primitive.uvs; data.indices = primitive.indices;
       data.applyToMesh(mesh); if (mesh.geometry) container.geometries.push(mesh.geometry);
@@ -107,7 +117,7 @@ export async function createGooglePreparedContainer(scene: Scene, tile: Extract<
         const factor = source.pbrMetallicRoughness?.baseColorFactor ?? [1, 1, 1, 1];
         material.albedoColor = Color3.FromArray(factor); material.alpha = factor[3];
         material.backFaceCulling = !source.doubleSided; material.twoSidedLighting = !!source.doubleSided;
-        material.metadata = { ...(source.extras ? { extras: source.extras } : {}), gltf: { pointers: [`/materials/${primitive.materialIndex}`] } };
+        recordGltf(material, `/materials/${primitive.materialIndex}`, source.extras);
         const sampler = googleTextureSampler(primitive.sampler);
         let timer: ReturnType<typeof setTimeout> | undefined;
         let expired = false;
@@ -143,6 +153,8 @@ export async function createGooglePreparedContainer(scene: Scene, tile: Extract<
       } else close(primitive.bitmap); // Shared material reuses its original texture.
       mesh.material = material;
     }
+    // The supported profile is one node with one mesh; the loader records the node after its primitives.
+    recordGltf(node, "/nodes/0", metadata.nodes?.[0]?.extras);
     // The retained 3d-tiles GLTFLoader resets the glTF root quaternion before
     // its adjustment (while retaining the handedness scale). Keep that order.
     root.rotationQuaternion = Quaternion.Identity();

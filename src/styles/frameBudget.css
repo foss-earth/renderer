@@ -74,9 +74,10 @@
   touch-action: pan-y;
 }
 
+/* A paragraph of owners at their natural widths, wrapping when the line runs out. */
 .foss-earth-streams__legend {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1px 10px;
   margin: 0;
   padding: 0;
@@ -101,15 +102,17 @@
 }
 
 .foss-earth-streams__owner {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Room for a changing reading, so the paragraph does not reflow each second. */
 .foss-earth-streams__value {
   flex: none;
+  min-width: 6ch;
   opacity: 0.8;
 }
 

@@ -11,7 +11,7 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     unit: "none",
     kind: "choice",
     choices: [
-      { id: "auto", label: "Auto-detect" },
+      { id: "auto", label: "Auto-detect", shortLabel: "Auto" },
       { id: "webgpu", label: "WebGPU" },
       { id: "webgl2", label: "WebGL2" },
       { id: "webgl", label: "WebGL" },

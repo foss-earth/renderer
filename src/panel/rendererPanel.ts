@@ -11,8 +11,9 @@ export interface RendererPanelOptions {
   /** The runtime's `renderer`: what runs, what was asked for, and why they differ. */
   renderer: Pick<RendererSelection, "mode" | "requested" | "fallbackReason" | "diagnostics">;
   /**
-   * The user's choice, or null for auto-detect. A renderer only changes on a
-   * reload, so the host saves the choice and reloads.
+   * Apply & reload: the user's choice, or null for auto-detect. A renderer only
+   * changes on a reload, so a choice is saved and shown as pending until the
+   * host applies it, saving the choice and reloading.
    */
   onChange(force: RendererMode | null): void;
   /** The registry of the tab's parameters; the app's when omitted. */
@@ -42,6 +43,17 @@ function describeRenderer({ mode, requested }: RendererPanelOptions["renderer"])
   return `Running on ${getRendererLabel(mode)}. ${getRendererLabel(requested)} was chosen but did not start.`;
 }
 
+/** The one visible line for a renderer that did not start this time; a saved fallback or a device that needs WebGL is explained behind ?. */
+function failureLine({ mode, requested, fallbackReason, diagnostics }: RendererPanelOptions["renderer"]): string | null {
+  const wanted = requested === "auto" ? "webgpu" : requested;
+  if (wanted === mode || diagnostics?.webGlRequired || diagnostics?.fallbackSavedAt !== undefined) return null;
+  if (requested === "auto" && !fallbackReason) return null;
+  return `${getRendererLabel(wanted)} did not start${fallbackReason ? `: ${fallbackReason.trim().replace(/\.+$/, "")}` : ""}.`;
+}
+
+const RENDERER_BACKEND_ID = "renderer.backend";
+const asForce = (value: unknown): RendererMode | null => value === "webgpu" || value === "webgl2" || value === "webgl" ? value : null;
+
 const day = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["renderer"]): string[] {
@@ -63,62 +75,77 @@ function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["
  */
 export function createRendererPanel(options: RendererPanelOptions): RendererPanelHandle {
   const settings = options.settings;
-  const { document, checkChoice, createChoiceGroup, createChoiceNote, appendHostSections, createParameterSection, createSectionsElement } = options.ui;
+  const { document, checkChoice, createChoiceGroup, createChoiceNote, createHelpTooltip, appendHostSections, createParameterSection, createSectionsElement } = options.ui;
   const element = document.createElement("div");
   element.className = "foss-earth-choice-panel";
-  const group = createChoiceGroup(RENDERER_CHOICE_NAME, "Renderer", [
-    { id: "auto", label: "Auto-detect" },
-    { id: "webgpu", label: "WebGPU" },
-    { id: "webgl2", label: "WebGL2" },
-    { id: "webgl", label: "WebGL" },
-  ]);
-  group.prepend(createChoiceNote(describeRenderer(options.renderer)));
-  group.append(createChoiceNote("Changing the renderer reloads the page."));
-  element.append(group);
-  checkChoice(element, RENDERER_CHOICE_NAME, options.renderer.requested);
-
+  const status = document.createElement("span");
+  status.textContent = `${getRendererLabel(options.renderer.mode)} running`;
+  const help = document.createElement("div");
+  const about = document.createElement("p");
+  about.textContent = `${describeRenderer(options.renderer)} A new choice is saved at once and starts after Apply & reload. Auto-detect tries WebGPU and falls back to WebGL.`;
+  help.append(about);
   const lines = diagnosticLines(options.renderer);
   if (lines.length > 0) {
     const diagnostics = document.createElement("pre");
     diagnostics.className = "foss-earth-renderer-diagnostics";
     diagnostics.textContent = lines.join("\n");
-    element.append(diagnostics);
+    help.append(diagnostics);
   }
+  // The section is titled Renderer, so the group's title is only its accessible name.
+  const group = createChoiceGroup(RENDERER_CHOICE_NAME, "Renderer", [
+    { id: "auto", label: "Auto-detect", shortLabel: "Auto" },
+    { id: "webgpu", label: "WebGPU" },
+    { id: "webgl2", label: "WebGL2" },
+    { id: "webgl", label: "WebGL" },
+  ], { hideHeading: true, status, help, helpLabel: "Explain the renderer" });
+  element.append(group);
+  const failure = failureLine(options.renderer);
+  if (failure) element.append(createChoiceNote(failure));
+  checkChoice(element, RENDERER_CHOICE_NAME, options.renderer.requested);
 
-  const advice = options.advice ?? [];
-  if (advice.length > 0) {
-    const list = document.createElement("div");
-    list.className = "foss-earth-choices foss-earth-renderer-advice";
-    const heading = document.createElement("span");
-    heading.className = "foss-earth-choices__heading";
-    heading.textContent = "Advice";
-    list.append(heading);
-    for (const item of advice) {
-      const text = createChoiceNote(item.text);
-      text.dataset.adviceId = item.id;
-      list.append(text, ...item.fix.map(step => createChoiceNote(step)));
-      if (item.docs) {
-        const link = document.createElement("a");
-        link.href = item.docs;
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.textContent = "The guide";
-        const note = createChoiceNote("");
-        note.append(link);
-        list.append(note);
-      }
+  const tooltips: { destroy(): void }[] = [];
+  for (const item of options.advice ?? []) {
+    const row = document.createElement("div");
+    row.className = "foss-earth-choices foss-earth-renderer-advice";
+    row.dataset.adviceId = item.id;
+    const text = createChoiceNote(item.text);
+    const fix = document.createElement("div");
+    for (const step of item.fix) {
+      const line = document.createElement("p");
+      line.textContent = step;
+      fix.append(line);
     }
-    element.append(list);
+    if (item.docs) {
+      const link = document.createElement("a");
+      link.href = item.docs;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "The guide";
+      const line = document.createElement("p");
+      line.append(link);
+      fix.append(line);
+    }
+    const tooltip = createHelpTooltip({ label: "How to fix this", content: fix });
+    tooltips.push(tooltip);
+    row.append(text, tooltip.element);
+    element.append(row);
   }
 
+  // A choice is saved and pending; the section's Apply & reload starts it.
   const onChange = (event: Event): void => {
     const input = event.target;
     if (!options.ui.isInput(input) || input.name !== RENDERER_CHOICE_NAME) return;
-    const value = input.value;
-    options.onChange(value === "webgpu" || value === "webgl2" || value === "webgl" ? value : null);
+    settings.set(RENDERER_BACKEND_ID, input.value);
   };
   element.addEventListener("change", onChange);
-  const backend = createParameterSection(settings, { tab: "renderer", section: "backend", main: element, covers: ["renderer.backend"] });
+  // Discard, an import or a preset changes the choice too.
+  const offChoice = settings.subscribe(changed => {
+    if (changed.has(RENDERER_BACKEND_ID)) checkChoice(element, RENDERER_CHOICE_NAME, String(settings.get(RENDERER_BACKEND_ID)));
+  });
+  const backend = createParameterSection(settings, {
+    tab: "renderer", section: "backend", main: element, covers: [RENDERER_BACKEND_ID],
+    reload: () => options.onChange(asForce(settings.get(RENDERER_BACKEND_ID))),
+  });
   const sections = createSectionsElement([
     { id: "renderer.backend", title: settings.getSectionTitle("renderer", "backend"), element: backend.element, defaultOpen: true },
   ]);
@@ -133,6 +160,8 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
       if (destroyed) return;
       destroyed = true;
       element.removeEventListener("change", onChange);
+      offChoice();
+      for (const tooltip of tooltips) tooltip.destroy();
       backend.destroy();
       hostSections.destroy();
       sections.destroy();

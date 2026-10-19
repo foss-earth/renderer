@@ -10,7 +10,12 @@ export interface FrameBudgetPanelOptions {
   session: FrameProfileSession;
   /** The one host registry, with `frameProfilingParameters` registered once. */
   settings: SettingsRegistry;
-  ui: { document: Document; createParameterControl(settings: SettingsRegistry, id: string): FrameBudgetControl };
+  ui: {
+    document: Document;
+    createParameterControl(settings: SettingsRegistry, id: string): FrameBudgetControl;
+    /** UI's familiar icon action, with its full accessible name and hover title. */
+    createIconButton(options: { icon: "copy" | "download"; label: string }): HTMLButtonElement;
+  };
   /** Host UI/frame refresh; never a panel-owned timer or rendering authority. */
   refreshPort: { nowMs(): number; subscribe(listener: () => void): () => void };
   /** Host output policy; clipboard/download globals are not accessed. */
@@ -24,6 +29,8 @@ export interface FrameBudgetPanelOptions {
   readings?: readonly string[];
   /** Added to the root's class, for a host's styling. */
   className?: string;
+  /** The panel's title, drawn first in its controls row: "Frame budget [Measure] …". */
+  title?: string;
   /** Name for a saved trace; "frame-trace" when omitted. */
   traceFileName?: string;
 }
@@ -76,12 +83,13 @@ const GPU_STATUS: Record<GpuTimingStatus | "off", string> = {
  */
 export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameBudgetPanelHandle {
   const settings = options.settings;
-  const { document, createParameterControl } = options.ui;
+  const { document, createParameterControl, createIconButton } = options.ui;
   const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] => el(document, tag, className, text);
   let destroyed = false;
   const { session } = options;
   const element = make("div", `foss-earth-frame-budget-panel${options.className ? ` ${options.className}` : ""}`);
   const controlsRow = make("div", "foss-earth-choices");
+  if (options.title) controlsRow.append(make("div", "foss-earth-choices__heading foss-earth-choices__heading--inline", options.title));
   const controls = new Map<string, FrameBudgetControl>();
   for (const id of Object.values(FRAME_PROFILING_IDS)) {
     const control = createParameterControl(settings, id);
@@ -106,10 +114,8 @@ export function createFrameBudgetPanel(options: FrameBudgetPanelOptions): FrameB
   const notes = make("div", "foss-earth-choices");
   for (const text of options.notes ?? []) notes.append(make("p", "foss-earth-choices__note", text));
   const actions = make("div", "foss-earth-choices");
-  const copy = make("button", "foss-earth-choice foss-earth-parameter__action", "Copy frame budget");
-  copy.type = "button";
-  const save = make("button", "foss-earth-choice foss-earth-parameter__action", "Save trace");
-  save.type = "button";
+  const copy = createIconButton({ icon: "copy", label: "Copy frame budget" });
+  const save = createIconButton({ icon: "download", label: "Save trace" });
   actions.append(copy, save);
   const results = make("div", "foss-earth-frame-budget__results");
   // A narrow panel scrolls the table, not the page.

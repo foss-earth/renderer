@@ -7,7 +7,7 @@ import { FRAME_PROFILING_IDS, frameProfilingParameters } from "../src/settings/p
 import { createSettingsRegistry } from "@foss-earth/ui/settings";
 import { createFrameBudgetPanel as createInjectedFrameBudgetPanel } from "../src/panel/frameBudgetPanel.js";
 
-import { createParameterControl } from "@foss-earth/ui/browser";
+import { createIconButton, createParameterControl } from "@foss-earth/ui/browser";
 
 let hostTime = 0;
 const hostListeners = new Set<() => void>();
@@ -15,7 +15,7 @@ const hostRefresh = { nowMs: () => hostTime, subscribe(listener: () => void) { h
 const advanceHost = (ms: number) => { hostTime += ms; for (const listener of [...hostListeners]) listener(); };
 const output = { copy: vi.fn(), saveJson: vi.fn() };
 function createFrameBudgetPanel(options: Omit<Parameters<typeof createInjectedFrameBudgetPanel>[0], "ui" | "refreshPort" | "actions">) {
-  return createInjectedFrameBudgetPanel({ ...options, ui: { document, createParameterControl: (settings, id) => createParameterControl(settings, id, document) }, refreshPort: hostRefresh, actions: output });
+  return createInjectedFrameBudgetPanel({ ...options, ui: { document, createParameterControl: (settings, id) => createParameterControl(settings, id, document), createIconButton: options => createIconButton(document, options) }, refreshPort: hostRefresh, actions: output });
 }
 
 beforeEach(() => {
@@ -70,6 +70,16 @@ describe("frame budget panel", () => {
     unbind();
   });
 
+  it("draws a host's title first in the controls row", () => {
+    const { session, settings, unbind } = setup();
+    const panel = createFrameBudgetPanel({ session, settings, title: "Frame budget" });
+    const row = panel.element.firstElementChild!;
+    expect(row.firstElementChild!.textContent).toBe("Frame budget");
+    expect(row.querySelector("[data-parameter]")).not.toBeNull();
+    panel.destroy();
+    unbind();
+  });
+
   it("shows each section's mean, p95, p99 and share once measuring, and saves a trace only when one is kept", () => {
     const { session, settings, unbind, frames } = setup();
     const panel = createFrameBudgetPanel({ session, settings, unmeasured: "the browser's own work" });
@@ -86,7 +96,7 @@ describe("frame budget panel", () => {
     const rows = [...panel.element.querySelectorAll("tbody tr")].map(row => row.querySelector("th")!.textContent);
     // The panel's own summarising is work in the frame too, so it shows.
     expect(rows).toEqual(["map", "raster tiles", "profiler", "panel"]);
-    const save = [...panel.element.querySelectorAll("button")].find(button => button.textContent === "Save trace")!;
+    const save = [...panel.element.querySelectorAll("button")].find(button => button.getAttribute("aria-label") === "Save trace")!;
     expect(save.hidden).toBe(true);
     settings.set(FRAME_PROFILING_IDS.traceFrames, 100);
     frames(3, 4);
@@ -175,7 +185,7 @@ describe("frame budget panel", () => {
     const { session, settings, unbind, frames } = setup();
     const panel = createFrameBudgetPanel({ session, settings, traceFileName: "host-trace" }); document.body.append(panel.element);
     settings.set(FRAME_PROFILING_IDS.enabled, true); settings.set(FRAME_PROFILING_IDS.traceFrames, 2); frames(3, 4); panel.refresh();
-    for (const button of panel.element.querySelectorAll("button")) if (button.textContent === "Copy frame budget" || button.textContent === "Save trace") button.click();
+    for (const button of panel.element.querySelectorAll("button")) if (button.getAttribute("aria-label") === "Copy frame budget" || button.getAttribute("aria-label") === "Save trace") button.click();
     expect(output.copy).toHaveBeenCalledWith(JSON.stringify(session.profiler.summary(), null, 2));
     expect(output.saveJson).toHaveBeenCalledWith("host-trace.json", JSON.stringify(session.trace(), null, 1));
     panel.destroy(); unbind(); session.dispose();

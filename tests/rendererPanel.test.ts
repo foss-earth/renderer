@@ -11,6 +11,7 @@ function uiFixture() {
   const parameterSection = vi.fn<RendererPanelUiPort["createParameterSection"]>((_settings, options) => ({ element: options.main!, destroy }));
   const appendHost = vi.fn<RendererPanelUiPort["appendHostSections"]>(() => ({ destroy }));
   const groupOptions = vi.fn<(options: RendererChoiceGroupOptions | undefined) => void>();
+  const entries: RendererPanelSection[] = [];
   const help = (content: HTMLElement) => { const element = document.createElement("span"); element.className = "help"; element.append(content); return element; };
   const ui: RendererPanelUiPort = {
     document, isInput: (value): value is HTMLInputElement => value instanceof HTMLInputElement,
@@ -26,10 +27,10 @@ function uiFixture() {
     checkChoice(root, name, id) { for (const input of root.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)) input.checked = input.value === id; },
     createHelpTooltip: ({ content }) => ({ element: help(content), destroy }),
     createParameterSection: parameterSection,
-    createSectionsElement(initial) { const element = document.createElement("div"); const ids = new Set<string>(); const append = (entry: RendererPanelSection) => { ids.add(entry.id); element.append(entry.element); }; initial.forEach(append); return { element, append, has: id => ids.has(id), destroy }; },
+    createSectionsElement(initial) { const element = document.createElement("div"); const ids = new Set<string>(); const append = (entry: RendererPanelSection) => { entries.push(entry); ids.add(entry.id); element.append(entry.element); }; initial.forEach(append); return { element, append, has: id => ids.has(id), destroy }; },
     appendHostSections: appendHost,
   };
-  return { ui, destroy, parameterSection, appendHost, groupOptions };
+  return { ui, destroy, parameterSection, appendHost, groupOptions, entries };
 }
 
 describe("injected Renderer panel", () => {
@@ -52,10 +53,12 @@ describe("injected Renderer panel", () => {
     expect(help.querySelector("pre")?.textContent).toContain("Error: adapter lost");
     expect(panel.element.querySelector<HTMLInputElement>("input:checked")?.value).toBe("webgpu");
     expect(f.parameterSection.mock.calls[0][0] === settings).toBe(true);
-    expect(f.parameterSection.mock.calls[0][1]).toMatchObject({ tab: "renderer", section: "backend", covers: ["renderer.backend"] });
+    expect(f.parameterSection.mock.calls[0][1]).toMatchObject({ tab: "renderer", section: "main", covers: ["renderer.backend"] });
+    // The everyday controls are the tab's main section, which is drawn on the tab itself.
+    expect(f.entries.map(entry => entry.id)).toEqual(["renderer.main", "renderer.performance"]);
     expect(f.appendHost.mock.calls[0][0] === settings).toBe(true);
     expect(f.appendHost.mock.calls[0][1]).toBe("renderer");
-    expect(f.appendHost.mock.calls[0][3]).toEqual(["backend", "performance"]);
+    expect(f.appendHost.mock.calls[0][3]).toEqual(["main", "performance"]);
     const reload = f.parameterSection.mock.calls[0][1].reload!;
     panel.element.querySelector<HTMLInputElement>('input[value="auto"]')!.click();
     expect(settings.get("renderer.backend")).toBe("auto");

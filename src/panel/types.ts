@@ -1,5 +1,6 @@
 import type { SettingsRegistry } from "@foss-earth/ui/settings";
 
+/** "renderer.main", the tab's main section, is drawn on the tab itself, with no disclosure or title. */
 export interface RendererPanelSection { id: string; title: string; element: HTMLElement; defaultOpen?: boolean; }
 export interface RendererPanelSections {
   element: HTMLElement;

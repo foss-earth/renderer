@@ -5,7 +5,7 @@ import type { ParameterHome, ParameterSpec } from "@foss-earth/ui/settings";
  * every frame and a trace holds memory, so both are off by default and last
  * for this session only. They are not in FOSS Earth's catalogue: each app
  * registers them once, homed where its panel is, since the panel is their
- * one home (FOSS Earth: Renderer → Performance debug; 0SFS: Debug → Frame budget).
+ * one home (FOSS Earth: Renderer → Debug; 0SFS: Debug → Frame budget).
  */
 export { FRAME_PROFILING_IDS } from "../profiling/ids.js";
 import { FRAME_PROFILING_IDS } from "../profiling/ids.js";

@@ -23,7 +23,7 @@ export interface RendererPanelOptions {
   /**
    * Sections an app draws itself for sections of this tab, by section id
    * ("performance" for renderer/performance), such as FOSS Earth's
-   * Performance debug. They follow the tab's other sections.
+   * Debug. They follow the tab's other sections.
    */
   sections?: readonly RendererPanelSection[];
   /** `adviseRenderer`'s advice, listed with each fix, including what the log was asked not to show again. */
@@ -70,8 +70,10 @@ function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["
 }
 
 /**
- * The contents of the Renderer tab: which GPU API draws the globe, then any
- * section a host's parameters are homed in, such as 0sfs's Instruments.
+ * The contents of the Renderer tab: which GPU API draws the globe and the
+ * tab's other everyday controls (resolution, antialiasing, frame rate cap),
+ * drawn on the tab itself, then any section a host's parameters are homed
+ * in, such as 0sfs's Instruments.
  */
 export function createRendererPanel(options: RendererPanelOptions): RendererPanelHandle {
   const settings = options.settings;
@@ -91,7 +93,7 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
     diagnostics.textContent = lines.join("\n");
     help.append(diagnostics);
   }
-  // The section is titled Renderer, so the group's title is only its accessible name.
+  // The tab is titled Renderer, so the group's title is only its accessible name.
   const group = createChoiceGroup(RENDERER_CHOICE_NAME, "Renderer", [
     { id: "auto", label: "Auto-detect", shortLabel: "Auto" },
     { id: "webgpu", label: "WebGPU" },
@@ -142,15 +144,20 @@ export function createRendererPanel(options: RendererPanelOptions): RendererPane
   const offChoice = settings.subscribe(changed => {
     if (changed.has(RENDERER_BACKEND_ID)) checkChoice(element, RENDERER_CHOICE_NAME, String(settings.get(RENDERER_BACKEND_ID)));
   });
+  // One Apply & reload for the tab's controls. The host's apply starts a new
+  // renderer choice; antialiasing alone only needs the page reloaded.
   const backend = createParameterSection(settings, {
-    tab: "renderer", section: "backend", main: element, covers: [RENDERER_BACKEND_ID],
-    reload: () => options.onChange(asForce(settings.get(RENDERER_BACKEND_ID))),
+    tab: "renderer", section: "main", main: element, covers: [RENDERER_BACKEND_ID],
+    reload: () => {
+      if (String(settings.get(RENDERER_BACKEND_ID)) !== options.renderer.requested) options.onChange(asForce(settings.get(RENDERER_BACKEND_ID)));
+      else document.defaultView?.location.reload();
+    },
   });
   const sections = createSectionsElement([
-    { id: "renderer.backend", title: settings.getSectionTitle("renderer", "backend"), element: backend.element, defaultOpen: true },
+    { id: "renderer.main", title: settings.getSectionTitle("renderer", "main"), element: backend.element },
   ]);
   const own = options.sections ?? [];
-  const hostSections = appendHostSections(settings, "renderer", sections, ["backend", ...own.map(section => section.id)]);
+  const hostSections = appendHostSections(settings, "renderer", sections, ["main", ...own.map(section => section.id)]);
   for (const section of own) sections.append({ ...section, id: `renderer.${section.id}` });
 
   let destroyed = false;

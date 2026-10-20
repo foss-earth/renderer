@@ -31,6 +31,7 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     bounds: () => ({ min: 0.25, max: 2 }),
     step: 0.25,
     scale: "log2",
+    alwaysShowTrack: true,
     default: context => context.rendererDevicePixels === false
       ? { value: 1 / Math.max(1, context.devicePixelRatio), derivedFrom: "the safe WebGPU fallback, which draws a pixel per CSS pixel" }
       : { value: 1, derivedFrom: "a pixel drawn per pixel of the display" },
@@ -61,6 +62,7 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     bounds: () => ({ min: 10, max: 240 }),
     step: 0.25,
     scale: "log2",
+    alwaysShowTrack: true,
     default: "off",
     defaultReason: "No cap: as many frames as the display shows.",
     home: { tab: RENDERER_TAB, section: "main", level: "main" },

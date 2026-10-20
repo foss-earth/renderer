@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "core": "google",
+  "abiVersion": 1,
+  "rust": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+  "optimizer": "wasm-opt version 132",
+  "node": "26.9.0",
+  "target": "wasm32-unknown-unknown",
+  "build": {
+    "command": [
+      "cargo",
+      "+stable",
+      "build",
+      "-p",
+      "earth-google",
+      "--release",
+      "--locked",
+      "--offline",
+      "--target",
+      "wasm32-unknown-unknown"
+    ],
+    "rustflags": "-C target-feature=+simd128 -C link-arg=--max-memory=268435456",
+    "optimize": [
+      "wasm-opt",
+      "-O3",
+      "--enable-simd",
+      "--strip-debug"
+    ]
+  },
+  "inputs": {
+    "../google-TS/profile.js": "baab2f253091777e402586a143d52d9cdfd96e876da729d48a9e8a448cc1ce25",
+    "Cargo.lock": "18cc1f42b57d5041a14056866b03ac0278e30656c92717b84c09cfbdd8547535",
+    "Cargo.toml": "0fc8ca130ddbdaa90ba97f71fabb9fa7ce0dd1921f3b74a48c93c336ed9dc4ce",
+    "crates/earth-google/Cargo.toml": "f2f489b0c6f7813828054594db83915738d6f63052ef1e0f640c7eb09819f9d9",
+    "crates/earth-google/src/lib.rs": "5587e1e14ae9197194f61bce897e1d6a6b4077bdb6ab9923d928d148110d47b2",
+    "index.d.ts": "a803a10cb3bea6034cae15f18b0c41f586bc9cec8182ab163c79fa46bf831564",
+    "index.js": "75d2b6634f080bf538133513e14909dd3461bc551f085d7dab0c6f2804afe281",
+    "rust-toolchain.toml": "ef4d1f56bd8d2d2644df4c2c5786dc149046cd43048f4550420d77a8829f9e53",
+    "scripts/build.mjs": "48263f5d6983f2f7068f3592466a507a0a25c34403fde4067b8642456bc14c47",
+    "toolchain.lock.json": "ba284fca51a3cba2eb0938288d75dd0ba0819b7c6072ca8216adaebfd669f5ab",
+    "worker.d.ts": "b3fe0bd7c566f4af31ff65a2c8b844b39426b049f8345b176a80c60ea5ef56f4",
+    "worker.js": "ea643c472ea44e35524c3558503e0775afc3009d8974aad359f00d8756714211"
+  },
+  "outputs": {
+    "single/google.wasm": {
+      "sha256": "f5ef0ee850a26a7bc729d9fb4aad2d7673d7d0bedcae22e1d8b765731b7e9955",
+      "bytes": 18316
+    }
+  },
+  "threaded": false,
+  "functionality": "build receipt only; parity evidence comes from this folder's checks",
+  "performance": "unmeasured",
+  "power": "unmeasured"
+}

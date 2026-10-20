@@ -60,11 +60,32 @@
       "source": "./src/vite/index.ts",
       "types": "./dist/vite/index.d.ts",
       "import": "./dist/vite/index.js"
-    }
+    },
+    "./google-TS": {
+      "types": "./google-TS/index.d.ts",
+      "source": "./google-TS/index.js",
+      "import": "./google-TS/index.js",
+      "default": "./google-TS/index.js"
+    },
+    "./google-WASM": {
+      "types": "./google-WASM/index.d.ts",
+      "source": "./google-WASM/index.js",
+      "import": "./google-WASM/index.js",
+      "default": "./google-WASM/index.js"
+    },
+    "./google-WASM/worker": {
+      "types": "./google-WASM/worker.d.ts",
+      "source": "./google-WASM/worker.js",
+      "import": "./google-WASM/worker.js",
+      "default": "./google-WASM/worker.js"
+    },
+    "./google-WASM/wasm": "./google-WASM/single/google.wasm"
   },
   "files": [
     "dist",
     "src",
+    "google-TS",
+    "google-WASM",
     "docs",
     "tests",
     "fixtures",
@@ -86,6 +107,9 @@
     "test:vite:node": "node fixtures/vite/check-node-import.mjs",
     "test:vite:types": "tsc -p fixtures/vite/tsconfig.public.json",
     "test:vite:graph": "node fixtures/vite/check-built-graph.mjs",
+    "build:wasm": "node google-WASM/scripts/build.mjs",
+    "check:wasm": "node google-WASM/scripts/check.mjs",
+    "test:wasm": "node --test google-WASM/tests/*.test.mjs",
     "check:implementation": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:consumer",
     "ci": "npm run check:implementation"
   },

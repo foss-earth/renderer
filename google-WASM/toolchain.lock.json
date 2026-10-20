@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "rust": "1.99.0",
+  "cargo": "1.99.0",
+  "installedToolchainAlias": "stable",
+  "target": "wasm32-unknown-unknown",
+  "binaryen": 132,
+  "node": "26.9.0",
+  "abi": "bounded raw exports, version 1",
+  "singleTargetFeatures": [
+    "simd128"
+  ],
+  "maximumMemoryBytes": 268435456,
+  "maximumBinaryBytes": 262144,
+  "wasmBindgen": null,
+  "qualification": "GLB envelope and accessor decoding checked bit for bit against the TypeScript twin, with the worker admission and fallback paths (tests/google.test.mjs); Chrome WebGL2 and WebGPU pixel comparisons of authored fixtures pass; Google network, performance and power qualification are separate"
+}

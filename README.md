@@ -17,8 +17,10 @@ The pure contracts initialize no device, scene, backend or global singleton. The
 | `/frame-budget.css` | Styles for the frame budget table. Generic control and section styles come from [`@foss-earth/ui`](https://github.com/foss-earth/ui). |
 | `/diagnostics` | Mesh inspector, vector drawing and performance metrics over the host scene. Canvas device, clock, memory and feature readings are injected. |
 | `/vite` | Node-only Vite plugins `babylonShaderChunks()` and `babylonBarrels()`, with `BABYLON_SHADER_GROUPS` and `BABYLON_BARREL`. See [Babylon build support](docs/vite.md). |
+| `/google-TS` | TypeScript reference for Google tile geometry decoding, `createTypeScriptGoogleCore`. Worker only. |
+| `/google-WASM`, `/google-WASM/worker` | Its Rust/WebAssembly twin and the Google preparation worker kernel. `/google-WASM/wasm` is the binary. See [google-WASM](google-WASM/README.md). |
 
-Entries are ESM JavaScript with declarations in `dist/`. Babylon, `@foss-earth/ui` and Vite are optional peers. Pure consumers need none of them; `@foss-earth/ui` is used for types only. Loading the Babylon entry imports backend code but constructs no engine or scene.
+Entries are ESM JavaScript with declarations in `dist/`; the Google twins ship as JavaScript with declarations in their own folders. Babylon, `@foss-earth/ui` and Vite are optional peers. Pure consumers need none of them; `@foss-earth/ui` is used for types only. Loading the Babylon entry imports backend code but constructs no engine or scene.
 
 Further documents: [host ports](docs/host-contracts.md) and [borrowed frame and native retirement](docs/native-frame-retirement.md).
 
@@ -155,8 +157,9 @@ The separate `@foss-earth/renderer/google-preparation` entry exports
 The client starts lazily, bounds pending jobs/source bytes, times out and retires
 failed workers, preserves original source bytes for loader fallback, and reports
 actual backend, geometry parity, work/round-trip time and transferred array bytes.
-The host creates its worker; renderer has no native package dependency and does
-not fetch map assets. Dispose the client with the owning Google renderer.
+The host creates its worker, usually installing `createGoogleWorkerKernel` from
+`/google-WASM/worker`; the renderer does not fetch map assets. Dispose the
+client with the owning Google renderer.
 
 ```ts
 const { createGoogleTileWorkerClient, installGoogleTilePreparation } =
@@ -224,7 +227,7 @@ A resource no source measures is shown as not available, never as zero. Measurin
 
 `@foss-earth/renderer` has an optional peer and dev dependency on `@foss-earth/ui`, which it names by a version that is not published. Its own `npm install`, tests and build therefore do not work on their own yet. Develop it through the app, which uses libraries straight from their checkouts: see [local source](https://github.com/foss-earth/app#local-source).
 
-The checks in `package.json` are `typecheck`, `lint`, `test` (Vitest, 50% of workers), `build` and `test:consumer`. The consumer test loads the emitted public exports and shares one fake frame queue with a Babylon `NullEngine` adapter, and compiles the pure API with `ES2022` and no DOM library or Node types.
+The checks in `package.json` are `typecheck`, `lint`, `test` (Vitest, 50% of workers), `build` and `test:consumer`. The consumer test loads the emitted public exports and shares one fake frame queue with a Babylon `NullEngine` adapter, and compiles the pure API with `ES2022` and no DOM library or Node types. The Google twins have `build:wasm`, `check:wasm` and `test:wasm`; see [google-WASM](google-WASM/README.md).
 
 ## Project policies
 

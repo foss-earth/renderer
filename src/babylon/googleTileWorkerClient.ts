@@ -17,12 +17,15 @@ export interface GooglePreparationStatus {
   pending: number;
 }
 export interface GoogleTileWorkerPort {
+  /** Structural host admission; Renderer does not depend on Engine. */
+  readonly compute?: { acquire(request?: { lanes?: number; signal?: AbortSignal }): Promise<GoogleComputeLease> };
   onmessage: ((event: MessageEvent) => void) | null;
   onerror: ((event: ErrorEvent) => void) | null;
   onmessageerror: ((event: MessageEvent) => void) | null;
   postMessage(message: unknown, transfer?: Transferable[]): void;
   terminate(): void;
 }
+interface GoogleComputeLease { readonly lanes: number; release(outcome?: "useful" | "stale" | "failed" | "retired"): void }
 export interface GoogleTileWorkerClient {
   decode(bytes: ArrayBuffer, signal?: AbortSignal): Promise<GooglePreparedTile>;
   getStatus(): GooglePreparationStatus;
@@ -50,17 +53,18 @@ export function createGoogleTileWorkerClient(options: {
   const status: GooglePreparationStatus = { actual: "idle", parity: "not-run", jobs: 0, failures: 0,
     roundTripMs: 0, workMs: 0, copyBytes: 0, pending: 0 };
   type Job = { resolve(value: GooglePreparedTile): void; reject(error: unknown): void; start: number;
-    byteLength: number; timer: ReturnType<typeof setTimeout>; signal?: AbortSignal; abort(): void };
+    byteLength: number; bytes: ArrayBuffer; timer?: ReturnType<typeof setTimeout>; signal?: AbortSignal; abort(): void;
+    admission: AbortController; lease?: GoogleComputeLease; dispatched: boolean; cancelled: boolean };
   const jobs = new Map<number, Job>();
   function forget(id: number): Job | undefined {
     const job = jobs.get(id);
-    if (job) { jobs.delete(id); clearTimeout(job.timer); job.signal?.removeEventListener("abort", job.abort); bytesPending -= job.byteLength; }
+    if (job) { jobs.delete(id); clearTimeout(job.timer); job.signal?.removeEventListener("abort", job.abort); bytesPending -= job.byteLength; job.admission.abort(); }
     return job;
   }
   function retire(reason: string) {
     retired = true; status.actual = "original"; status.fallbackReason = reason;
-    worker?.terminate(); worker = undefined;
-    for (const id of [...jobs.keys()]) forget(id)?.reject(new Error(reason));
+    try { worker?.terminate(); } catch { status.failures++; } worker = undefined;
+    for (const id of [...jobs.keys()]) { const job = forget(id); job?.lease?.release("retired"); job?.reject(new Error(reason)); }
   }
   function startWorker() {
     if (worker) return worker;
@@ -73,6 +77,8 @@ export function createGoogleTileWorkerClient(options: {
       if (reply.kind !== "decoded" && reply.kind !== "failed") return;
       const job = reply.generation === 0 ? forget(reply.id) : undefined;
       if (!job) { if (reply.kind === "decoded" && reply.supported) closeGoogleTileBitmaps(reply); return; }
+      job.lease?.release(job.cancelled ? "stale" : reply.kind === "failed" || !reply.supported ? "failed" : "useful");
+      if (job.cancelled) { if (reply.kind === "decoded" && reply.supported) closeGoogleTileBitmaps(reply); pump(); return; }
       status.roundTripMs += performance.now() - job.start;
       if (reply.kind === "failed") {
         status.failures++; job.reject(new Error(`Google worker ${reply.stage}: ${reply.error?.message}`));
@@ -87,8 +93,30 @@ export function createGoogleTileWorkerClient(options: {
       status.workMs += Number.isFinite(reply.workMs) ? reply.workMs : 0;
       if (reply.supported) status.copyBytes += reply.matrix.byteLength + reply.primitives.reduce((n: number, p: GooglePreparedPrimitive) => n + p.positions.byteLength + p.uvs.byteLength + p.indices.byteLength + (p.jpeg?.byteLength ?? 0), 0);
       job.resolve(reply);
+      pump();
     };
     return worker;
+  }
+  function dispatch(id: number, job: Job, lease?: GoogleComputeLease): void {
+    if (!jobs.has(id) || disposed || retired) { lease?.release("stale"); return; }
+    job.lease = lease; job.dispatched = true; job.start = performance.now();
+    job.timer = setTimeout(() => { status.failures++; retire("Google worker startup/job timeout"); }, timeoutMs);
+    try {
+      // Copy after admission. The caller's bytes remain available for fallback.
+      const copy = job.bytes.slice(0); status.copyBytes += copy.byteLength;
+      worker!.postMessage({ version: 1, id, generation: 0, kind: "decode", bytes: copy, colorSpaceConversion: options.imageColorSpaceConversion ?? "none" }, [copy]);
+    } catch (error) { status.failures++; retire(`Google worker dispatch: ${String(error)}`); }
+  }
+  function pump(): void {
+    if (!worker?.compute || [...jobs.values()].some(job => job.dispatched || job.start === -1)) return;
+    const next = jobs.entries().next().value;
+    if (!next) return;
+    const [id, job] = next;
+    job.start = -1;
+    void worker.compute.acquire({ signal: job.admission.signal }).then(lease => { dispatch(id, job, lease); pump(); }, error => {
+      if (forget(id)) job.reject(error);
+      pump();
+    });
   }
   return {
     decode(bytes, signal) {
@@ -97,20 +125,24 @@ export function createGoogleTileWorkerClient(options: {
       if (jobs.size >= maxPending || bytesPending + bytes.byteLength > maxBytes) return Promise.reject(new Error("Google worker queue is full"));
       return new Promise((resolve, reject) => {
         const id = nextId++;
-        const job: Job = { resolve, reject, start: performance.now(), byteLength: bytes.byteLength, signal,
-          timer: setTimeout(() => { status.failures++; retire("Google worker startup/job timeout"); }, timeoutMs),
+        const job: Job = { resolve, reject, start: 0, bytes, byteLength: bytes.byteLength, signal,
+          admission: new AbortController(), dispatched: false, cancelled: false,
           abort() {
+            if (worker?.compute && job.dispatched) {
+              // Caller cancellation is not worker completion. Do not send the
+              // kernel's early cancellation acknowledgement or release a lane.
+              job.cancelled = true; reject(abortError()); return;
+            }
             if (!forget(id)) return;
             try { worker?.postMessage({ version: 1, id, generation: 0, kind: "cancel" }); }
             catch (error) { status.failures++; retire(`Google worker cancellation: ${String(error)}`); }
-            finally { reject(abortError()); }
+            finally { reject(abortError()); pump(); }
           } };
         jobs.set(id, job); bytesPending += bytes.byteLength; signal?.addEventListener("abort", job.abort, { once: true });
         try {
-          // Preserve the original bytes for the complete-loader fallback.
-          const copy = bytes.slice(0); status.copyBytes += copy.byteLength;
-          startWorker().postMessage({ version: 1, id, generation: 0, kind: "decode", bytes: copy, colorSpaceConversion: options.imageColorSpaceConversion ?? "none" }, [copy]);
-        } catch (error) { forget(id); reject(error); status.failures++; retire(`Google worker dispatch: ${String(error)}`); }
+          startWorker();
+          if (worker!.compute) pump(); else dispatch(id, job);
+        } catch (error) { status.failures++; retire(`Google worker dispatch: ${String(error)}`); }
       });
     },
     fallback(reason) { status.actual = "original"; status.fallbackReason = reason; },

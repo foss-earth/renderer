@@ -114,6 +114,24 @@ describe("Google prepared Babylon consumer", () => {
 });
 describe("Google worker host ownership", () => {
   function worker(): GoogleTileWorkerPort { return { onmessage: null, onerror: null, onmessageerror: null, postMessage: vi.fn(), terminate: vi.fn() }; }
+  it("waits outside its execution timeout, holds cancelled compute through the actual reply and serializes ready jobs", async () => {
+    vi.useFakeTimers();
+    try {
+      const release = vi.fn(), grants: Array<(value: { lanes: number; release: typeof release }) => void> = [];
+      const acquire = vi.fn(() => new Promise<{ lanes: number; release: typeof release }>(resolve => grants.push(resolve)));
+      const port = { ...worker(), compute: { acquire } }, client = createGoogleTileWorkerClient({ createWorker: () => port, timeoutMs: 10 });
+      const abort = new AbortController(), first = client.decode(new ArrayBuffer(28), abort.signal), next = client.decode(new ArrayBuffer(28));
+      await vi.advanceTimersByTimeAsync(100); expect(port.postMessage).not.toHaveBeenCalled(); expect(acquire).toHaveBeenCalledOnce();
+      grants.shift()!({ lanes: 1, release }); await Promise.resolve();
+      abort.abort(); await expect(first).rejects.toThrow("cancelled");
+      expect(release).not.toHaveBeenCalled(); expect(port.postMessage).toHaveBeenCalledOnce();
+      const stale = tile(); port.onmessage?.({ data: { ...stale, version: 1, id: 1, generation: 0, kind: "decoded" } } as MessageEvent);
+      expect(stale.primitives[0].bitmap.close).toHaveBeenCalledOnce(); expect(release).toHaveBeenCalledWith("stale");
+      expect(acquire).toHaveBeenCalledTimes(2); grants.shift()!({ lanes: 1, release }); await Promise.resolve();
+      port.onmessage?.({ data: { supported: false, reason: "fixture", version: 1, id: 2, generation: 0, kind: "decoded" } } as MessageEvent);
+      await next; client.dispose(); expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
   it("starts lazily, bounds its queue, retains fallback input and closes cancelled late output", async () => {
     const port = worker(), factory = vi.fn(() => port), client = createGoogleTileWorkerClient({ createWorker: factory, maxPending: 1 });
     expect(factory).not.toHaveBeenCalled(); const controller = new AbortController(), input = new ArrayBuffer(28);

@@ -19,6 +19,37 @@ describe("host-supplied performance observations", () => {
     } finally { scene.dispose(); engine.dispose(); }
   });
 
+  it("reports the same 95th percentile as sorting the whole window in every frame", () => {
+    const engine = new NullEngine(), scene = new Scene(engine);
+    // The percentile as it was taken before the window was kept sorted.
+    const reference = (values: readonly number[]): number => {
+      if (values.length === 0) return 0;
+      const sorted = [...values].sort((a, b) => a - b);
+      return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * 0.95))];
+    };
+    try {
+      let seed = 7, compared = 0;
+      const random = (): number => { seed = (Math.imul(seed, 1_103_515_245) + 12_345) >>> 0; return seed / 4_294_967_296; };
+      for (const frameSampleCount of [1, 2, 3, 20, 120]) {
+        let now = 0;
+        const window: number[] = [];
+        const metrics = createPerformanceMetrics({ engine, scene, now: () => now, memoryBytes: () => null, frameSampleCount,
+          getTileMetrics: () => null, getCullingStats: () => ({ total: 0, visible: 0, hidden: 0 }) });
+        for (let frame = 0; frame < 3000; frame += 1) {
+          // Repeated, zero, fractional and very long intervals.
+          const kind = random();
+          const delta = kind < 0.1 ? 0 : kind < 0.4 ? 16 + Math.floor(random() * 4) : kind < 0.45 ? 1e9 * random() : random() * 50;
+          now += delta;
+          const { frameMs, p95FrameMs } = metrics.update();
+          if (frameMs > 0) { window.push(frameMs); if (window.length > frameSampleCount) window.shift(); }
+          expect(Object.is(p95FrameMs, reference(window))).toBe(true);
+          compared += 1;
+        }
+      }
+      expect(compared).toBe(15_000);
+    } finally { scene.dispose(); engine.dispose(); }
+  });
+
   it("reports absent host memory and refuses invalid retention before reading host observations", () => {
     const engine = new NullEngine(), scene = new Scene(engine), now = vi.fn(() => 5);
     try {

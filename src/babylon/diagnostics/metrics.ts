@@ -31,13 +31,24 @@ const EMPTY_CULLING: CullingStats = { total: 0, visible: 0, hidden: 0 };
 
 
 
-function percentile(values: readonly number[], percentileRank: number): number {
-  if (values.length === 0) {
+/** The value at a rank of an ascending list. */
+function percentile(sorted: readonly number[], percentileRank: number): number {
+  if (sorted.length === 0) {
     return 0;
   }
-  const sorted = [...values].sort((a, b) => a - b);
   const index = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentileRank));
   return sorted[index];
+}
+
+/** Index of the first value in an ascending list that is not below `value`. */
+function lowerBound(sorted: readonly number[], value: number): number {
+  let low = 0, high = sorted.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (sorted[middle] < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 export function createPerformanceMetrics(options: {
@@ -52,7 +63,10 @@ export function createPerformanceMetrics(options: {
 }): PerformanceMetricsHandle {
   const sampleCount = options.frameSampleCount ?? DEFAULT_FRAME_SAMPLE_COUNT;
   if (!Number.isSafeInteger(sampleCount) || sampleCount < 1) throw new RangeError("Frame sample count must be a positive whole number.");
+  // The window in arrival order, and the same values kept in ascending order
+  // as they come and go, so that no frame sorts the whole window.
   const frameSamples: number[] = [];
+  const sortedSamples: number[] = [];
   let lastTimeMs = options.now();
   let snapshot: PerformanceSnapshot = {
     fps: 0,
@@ -72,8 +86,9 @@ export function createPerformanceMetrics(options: {
 
     if (frameMs > 0) {
       frameSamples.push(frameMs);
+      sortedSamples.splice(lowerBound(sortedSamples, frameMs), 0, frameMs);
       if (frameSamples.length > sampleCount) {
-        frameSamples.shift();
+        sortedSamples.splice(lowerBound(sortedSamples, frameSamples.shift()!), 1);
       }
     }
 
@@ -81,7 +96,7 @@ export function createPerformanceMetrics(options: {
     snapshot = {
       fps: options.engine.getFps(),
       frameMs,
-      p95FrameMs: percentile(frameSamples, 0.95),
+      p95FrameMs: percentile(sortedSamples, 0.95),
       activeMeshes: options.scene.getActiveMeshes().length,
       drawCalls: null,
       memoryMb: memoryBytes === null ? null : memoryBytes / 1_048_576,

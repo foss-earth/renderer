@@ -9,7 +9,7 @@ The pure contracts initialize no device, scene, backend or global singleton. The
 | Export | Contents |
 | --- | --- |
 | `@foss-earth/renderer` and `/core` | Scheduler, readiness and resource ownership, pure selection types and remembered-mode storage functions. No Babylon, React or DOM imports. `/core` is the same module as the root. |
-| `/browser` | `createBrowserRenderScheduler`, with optional frame ports and a browser animation-frame fallback. Creates one core scheduler. `observeResourceTiming` and `readHeapBytes` feed the network and memory sources. |
+| `/browser` | `createBrowserRenderScheduler`, with optional frame ports and a browser animation-frame fallback. Creates one core scheduler. `observeResourceTiming` and `readHeapBytes` feed the network and memory sources. `observeRendererHealth` observes supplied engine/scene frame boundaries and full native GPU errors without importing the Babylon runtime or scheduling work. |
 | `/babylon` | Backend and scene bootstrap, presentation probe and candidates, scene readiness, browser environment factories, supplied-runtime lifecycle, texture upload and transfer helpers. Optional peer `@babylonjs/core@8.56.2`. |
 | `/panel` | Renderer panel and frame budget panel, built from a supplied registry, document/input realm and UI-owned factories. |
 | `/settings` | Renderer parameter records and experiment/legacy 360 handoff views. Uses public types from `@foss-earth/ui/settings`. |

@@ -1,5 +1,6 @@
 import { createRenderScheduler, type WorkRenderScheduler, type RenderSchedulerOptions, type RenderFrameCallback } from "./renderScheduler.js";
 import type { ResourceTimingEntry } from "./profiling/networkSource.js";
+export { observeRendererHealth, type RendererHealthSource } from "./rendererHealth.js";
 
 export interface AnimationFrameHost {
   requestAnimationFrame(callback: RenderFrameCallback): number;

@@ -1,7 +1,9 @@
-import { Mesh, NullEngine, Scene } from "@babylonjs/core";
+import { FreeCamera, Mesh, NullEngine, Scene, Vector3, type Camera } from "@babylonjs/core";
 import { createSettingsRegistry } from "@foss-earth/ui/settings";
 import { describe, expect, it, vi } from "vitest";
 import { createBabylonRendererLifecycle } from "../src/babylon/rendererLifecycle.js";
+import { DYNAMIC_RESOLUTION_UNTIMED_NOTE } from "../src/dynamicResolution.js";
+import { SPATIAL_UPSCALING_WEBGL1_NOTE } from "../src/spatialUpscaling.js";
 import { createRendererResourceLifecycle } from "../src/resourceLifecycle.js";
 import { RENDERER_PARAMETERS, RENDERER_OWNED_EXPERIMENT_PARAMETERS } from "../src/settings/catalogue.js";
 import type { RenderScheduler } from "../src/renderScheduler.js";
@@ -310,4 +312,58 @@ describe("renderer-only runtime lifecycle", () => {
       expect(render).toHaveBeenCalledOnce(); expect(end).toHaveBeenCalledOnce(); expect(after).not.toHaveBeenCalled();
     } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
   });
+
+  it("reconstructs below native with EASU at device pixels and restores browser scaling when upscaling is off", () => {
+    const f = fixture();
+    const camera = new FreeCamera("camera", Vector3.Zero(), f.scene);
+    f.scene.activeCamera = camera;
+    const scaling = vi.spyOn(f.engine, "setHardwareScalingLevel");
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgl2" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      f.settings.set("renderer.resolutionScale", 0.5);
+      f.settings.set("renderer.upscaling", "easu");
+      expect(scaling).toHaveBeenLastCalledWith(0.5);
+      expect(f.settings.inspect("renderer.upscaling").note).toBeNull();
+      expect(attached(camera)).toBe(1);
+      f.settings.set("renderer.upscaling", "off");
+      expect(scaling).toHaveBeenLastCalledWith(1);
+      expect(attached(camera)).toBe(0);
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+  });
+
+  it("leaves WebGL1 on browser scaling and explains why upscaling is unavailable", () => {
+    const f = fixture();
+    const camera = new FreeCamera("camera", Vector3.Zero(), f.scene);
+    f.scene.activeCamera = camera;
+    const scaling = vi.spyOn(f.engine, "setHardwareScalingLevel");
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgl" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      f.settings.set("renderer.resolutionScale", 0.5);
+      f.settings.set("renderer.upscaling", "easu-rcas");
+      expect(f.settings.inspect("renderer.upscaling").note).toBe(SPATIAL_UPSCALING_WEBGL1_NOTE);
+      expect(scaling).toHaveBeenLastCalledWith(1);
+      expect(attached(camera)).toBe(0);
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+  });
+
+  it("holds the manual scale without GPU timestamps and restores that formula when dynamic resolution turns off", () => {
+    const f = fixture();
+    vi.spyOn(f.engine, "getCaps").mockReturnValue({ maxTextureSize: 4096 } as ReturnType<typeof f.engine.getCaps>);
+    const scaling = vi.spyOn(f.engine, "setHardwareScalingLevel");
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgl2" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      f.settings.set("renderer.resolutionScale", 0.5);
+      f.settings.set("renderer.dynamicResolution", true);
+      expect(f.settings.inspect("renderer.dynamicResolution").note).toBe(DYNAMIC_RESOLUTION_UNTIMED_NOTE);
+      expect(scaling).toHaveBeenLastCalledWith(1);
+      f.settings.set("renderer.dynamicResolution", false);
+      expect(f.settings.inspect("renderer.dynamicResolution").note).toBeNull();
+      expect(f.engine.getHardwareScalingLevel()).toBe(1);
+      expect(scaling).toHaveBeenLastCalledWith(1);
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+  });
 });
+
+function attached(camera: Camera): number {
+  return (camera as Camera & { _postProcesses: unknown[] })._postProcesses.filter(Boolean).length;
+}

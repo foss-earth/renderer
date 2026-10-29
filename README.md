@@ -90,6 +90,8 @@ Failed WebGPU initialization releases its engine, the deprecated engine-only fac
 
 `createBabylonRendererLifecycle` binds the supplied selection, scene, scheduler, registry and platform. It handles resolution and device pixel ratio, frame-limit wake-up, visibility and resize listeners, presentation filtering, scene readiness, device-loss generation and restoration, and `beginFrame`/render/`endFrame` bracketing. The host supplies camera clipping and device-loss teardown callbacks.
 
+`renderer.resolutionScale` remains the manual scale. `renderer.dynamicResolution` is off by default; while on, it moves that scale between 0.5 and the manual scale in steps of 0.05, from GPU frame time against `renderer.targetFps` (60). It drops within a few over-budget GPU frames and rises one step at a time, and a CPU-bound frame does not lower it while the GPU is well inside its share. `renderer.upscaling` is off by default, which leaves enlargement to the browser. `easu` and `easu-rcas` draw at the effective scale and reconstruct to device pixels on WebGPU and WebGL2. The core entry exports `DynamicResolutionController` and `resolveSpatialUpscalingState`. `/babylon` exports the passes and `acquireGpuFrameTime`, the shared timing lease the profiler and the scaler both hold.
+
 - It owns neither the scene or device nor the scheduler. Exposure and fill belong to the sky package.
 - Dispose it before stopping the scheduler, then dispose features, scene and engine in the host's order.
 - A failed startup releases every observer and subscription it acquired and restores the original presentation candidate function. Cleanup attempts every owned stop even if one throws, and detached callbacks do nothing. Settings already applied to the supplied registry or device are host state and are not rolled back.
@@ -185,8 +187,8 @@ ICC-bearing JPEGs in WebGL keep the original complete loader with a reason.
 hierarchy/transforms/geometry and all sampler combinations, plus ownership and
 fallback behavior. The local synthetic Chrome fixture is
 `node build/google-browser/run.mjs`; receipts and pixel comparisons are under
-`build/google-browser/evidence/`. WebGL2 covered 12 worker-native cases and
-12 ICC original-loader fallbacks; WebGPU covered 24 worker-native cases,
+`build/google-browser/evidence/`. WebGL2 covered 12 worker WASM cases and
+12 ICC original-loader fallbacks; WebGPU covered 24 worker WASM cases,
 including Display P3 ICC JPEGs. Each compared exact RGBA bytes against the
 original loader. This qualifies those authored fixtures, with no measured
 Google app performance claim.

@@ -1,7 +1,7 @@
 import { Observable, type AbstractEngine, type Scene } from "@babylonjs/core";
 import { describe, expect, it, vi } from "vitest";
 import { createFrameProfiler } from "../src/profiling/frameProfiler.js";
-import { profileBabylonScene } from "../src/babylon/frameProfiler.js";
+import { acquireGpuFrameTime, profileBabylonScene } from "../src/babylon/frameProfiler.js";
 
 /** A profiler on a hand-driven clock. */
 function manual(windowFrames = 10) {
@@ -248,5 +248,57 @@ describe("frame profiler", () => {
     expect(t.profiler.summary().sections.find(section => section.section === "gpu/globe")?.meanMs).toBe(4);
     stop();
     expect(timing).toBe(false);
+  });
+
+  it("keeps WebGPU timing enabled until the profiler's lease and a second lease have both released", () => {
+    const counter = { total: 0, count: 0 };
+    let timing = false;
+    const engine = {
+      get enableGPUTimingMeasurements() { return timing; },
+      set enableGPUTimingMeasurements(on: boolean) { timing = on; },
+      get gpuTimeInFrameForMainPass() { return timing ? { counter } : undefined; },
+    } as unknown as AbstractEngine;
+    const observable = () => new Observable<Scene>();
+    const scene = {
+      onBeforeAnimationsObservable: observable(), onAfterRenderObservable: observable(),
+      onBeforeActiveMeshesEvaluationObservable: observable(), onAfterActiveMeshesEvaluationObservable: observable(),
+      onBeforeRenderTargetsRenderObservable: observable(), onAfterRenderTargetsRenderObservable: observable(),
+      onBeforeDrawPhaseObservable: observable(), onAfterDrawPhaseObservable: observable(),
+    } as unknown as Scene;
+    const lease = acquireGpuFrameTime(engine);
+    const stop = profileBabylonScene(manual().profiler, scene, engine);
+    scene.onAfterRenderObservable.notifyObservers(scene);
+    expect(timing).toBe(true);
+    stop();
+    expect(timing).toBe(true);
+    lease.release();
+    expect(timing).toBe(false);
+    lease.release();
+    expect(timing).toBe(false);
+  });
+
+  it("shares one WebGL frame timer until the last lease releases", () => {
+    const capture: boolean[] = [];
+    const observables = () => ({ remove: () => false });
+    const engine = {
+      getCaps: () => ({ timerQuery: {} }),
+      captureGPUFrameTime: (on: boolean) => { capture.push(on); },
+      getGPUFrameTimeCounter: () => ({ current: 4e6 }),
+      onBeginFrameObservable: observables(),
+      onEndFrameObservable: observables(),
+      onBeforeShaderCompilationObservable: observables(),
+      onAfterShaderCompilationObservable: observables(),
+    } as unknown as AbstractEngine;
+    const first = acquireGpuFrameTime(engine);
+    const second = acquireGpuFrameTime(engine);
+    expect(capture).toEqual([true]);
+    expect(first.read()).toBe(4);
+    expect(second.read()).toBe(4);
+    first.release();
+    expect(capture).toEqual([true]);
+    second.release();
+    expect(capture).toEqual([true, false]);
+    second.release();
+    expect(capture).toEqual([true, false]);
   });
 });

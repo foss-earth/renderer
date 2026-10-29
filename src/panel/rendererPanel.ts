@@ -71,7 +71,7 @@ function diagnosticLines({ diagnostics, fallbackReason }: RendererPanelOptions["
 
 /**
  * The contents of the Renderer tab: which GPU API draws the globe and the
- * tab's other everyday controls (resolution, antialiasing, frame rate cap),
+ * tab's other everyday controls (resolution, upscaling, dynamic resolution, antialiasing, frame rate cap),
  * drawn on the tab itself, then any section a host's parameters are homed
  * in, such as 0sfs's Instruments.
  */

@@ -63,7 +63,7 @@ a terminal readiness signal continues adaptive checking until cancelled.
   Earlier foundation archive evidence remains immutable and applies only to
   that earlier source. Never resolve sibling source paths in installed checks.
 - Build tooling pins are recorded in `package.json`. Installer check commands
-  must be argv arrays and require no server, GPU, benchmark or native build.
+  must be argv arrays and require no server, GPU, benchmark or WASM build.
 - `npm run check:implementation` runs typecheck/lint/unit tests/build/public
   consumer fixtures; tests use Node and a Babylon NullEngine, with workers
   capped at 50%. Check ownership remains coordinator-reserved.
@@ -114,7 +114,7 @@ copied here; actual current UI bridge qualification is pending its new artifact.
 `createRendererPanel` retains backend selection/reload note/fallback diagnostics,
 `renderer.backend` coverage, source section IDs and host section contributions.
 
-`RENDERER_PARAMETERS` retains six source IDs/homes. `RENDERER_EXPERIMENT_PARAMETERS`
+`RENDERER_PARAMETERS` keeps the original six source IDs and adds `renderer.upscaling`, `renderer.upscalingSharpness`, `renderer.dynamicResolution`, and `renderer.targetFps` on the same renderer tab. `RENDERER_EXPERIMENT_PARAMETERS`
 is an exact legacy compatibility catalogue; `RENDERER_OWNED_EXPERIMENT_PARAMETERS`
 contains only `all` and `presentationCandidates`. The three panorama records
 are exposed as `LEGACY_360_RENDERER_PARAMETER_HANDOFF` for 360 to own/register

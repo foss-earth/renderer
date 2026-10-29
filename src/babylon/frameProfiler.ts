@@ -37,8 +37,7 @@ export function profileBabylonScene(
   // GPU readings arrive frames late, and on WebGL Babylon times only one frame
   // in every few. The latest reading stands for every frame until the next
   // arrives, so the mean is per frame rather than per reading.
-  const gpu: GpuTimer = isWebGpuEngine(engine) ? webGpuPassTimer(engine)
-    : canTimeGpuFrames(engine) ? webGlFrameTimer(engine)
+  const gpu: GpuTimer = isWebGpuEngine(engine) || canTimeGpuFrames(engine) ? leasedTimer(engine)
     : { read: () => 0, dispose() {} };
   const gpuObserver = scene.onAfterRenderObservable.add(() => {
     const milliseconds = gpu.read(profiler.enabled);
@@ -68,23 +67,117 @@ function isWebGpuEngine(engine: AbstractEngine): engine is WebGPUEngine {
   return "enableGPUTimingMeasurements" in engine;
 }
 
+interface GpuLeaseRecord {
+  refs: number;
+  kind: "webgpu" | "webgl" | "none";
+  instrumentation: EngineInstrumentation | null;
+}
+
+interface GpuLeaseReader {
+  primed: boolean;
+  seenTotal: number;
+  seenFrames: number;
+  held: number;
+}
+
+const gpuLeases = new WeakMap<object, GpuLeaseRecord>();
+
+export interface GpuFrameTimeLease {
+  /** Latest completed GPU frame, in milliseconds, or 0 before one exists. */
+  read(): number;
+  release(): void;
+}
+
 /**
- * WebGPU: Babylon's frame-level timer writes timestamps on the command
- * encoder, which browsers no longer allow, so it always reads 0. Its per-pass
- * timer uses the render passes' `timestampWrites` and works. Every pass that
- * has no counter of its own lands in the main pass's counter, so the reading is
- * the GPU time of all the frame's render passes; copies and mipmap generation
- * are left out.
+ * Reference-counted GPU timing for one engine. The profiler's pass timer and
+ * dynamic resolution both hold a lease: timing stays on until the last one
+ * releases, so turning the profiler off cannot blind the scaler.
  */
-function webGpuPassTimer(engine: WebGPUEngine): GpuTimer {
-  let owned = false;
-  let seenTotal = 0;
-  let seenFrames = 0;
-  let held = 0;
+export function acquireGpuFrameTime(engine: AbstractEngine): GpuFrameTimeLease {
+  const key = engine as object;
+  let record = gpuLeases.get(key);
+  if (!record) {
+    record = { refs: 0, kind: isWebGpuEngine(engine) ? "webgpu" : canTimeGpuFrames(engine) ? "webgl" : "none", instrumentation: null };
+    gpuLeases.set(key, record);
+  }
+  const leaseRecord = record;
+  leaseRecord.refs += 1;
+  enableGpuTiming(engine, leaseRecord);
+  const reader: GpuLeaseReader = { primed: false, seenTotal: 0, seenFrames: 0, held: 0 };
+  let released = false;
+  return {
+    read() {
+      if (released) return 0;
+      if (leaseRecord.kind === "webgpu") return readWebGpuPass(engine as WebGPUEngine, reader);
+      if (leaseRecord.kind === "webgl") return readWebGlFrame(leaseRecord);
+      return 0;
+    },
+    release() {
+      if (released) return;
+      released = true;
+      leaseRecord.refs = Math.max(0, leaseRecord.refs - 1);
+      if (leaseRecord.refs === 0) {
+        disableGpuTiming(engine, leaseRecord);
+        gpuLeases.delete(key);
+      }
+    },
+  };
+}
+
+function enableGpuTiming(engine: AbstractEngine, record: GpuLeaseRecord): void {
+  if (record.kind === "webgpu" && isWebGpuEngine(engine)) {
+    if (!engine.enableGPUTimingMeasurements) engine.enableGPUTimingMeasurements = true;
+    return;
+  }
+  if (record.kind !== "webgl") return;
+  if (!record.instrumentation) record.instrumentation = new EngineInstrumentation(engine);
+  if (!record.instrumentation.captureGPUFrameTime) record.instrumentation.captureGPUFrameTime = true;
+}
+
+function disableGpuTiming(engine: AbstractEngine, record: GpuLeaseRecord): void {
+  if (record.kind === "webgpu" && isWebGpuEngine(engine)) engine.enableGPUTimingMeasurements = false;
+  if (record.instrumentation) {
+    record.instrumentation.captureGPUFrameTime = false;
+    record.instrumentation.dispose();
+    record.instrumentation = null;
+  }
+}
+
+/**
+ * WebGPU's per-pass timer writes `timestampWrites` on render passes. Passes
+ * without a counter of their own land in the main pass, so the reading is the
+ * GPU time of the frame's render passes. The newest frame may still be open;
+ * the ones before it are complete.
+ */
+function readWebGpuPass(engine: WebGPUEngine, reader: GpuLeaseReader): number {
+  const counter = engine.gpuTimeInFrameForMainPass?.counter;
+  if (!counter) return 0;
+  const frames = Math.max(0, counter.count - 1);
+  if (!reader.primed || frames < reader.seenFrames || counter.total < reader.seenTotal) {
+    reader.primed = true;
+    reader.seenTotal = counter.total;
+    reader.seenFrames = frames;
+    reader.held = 0;
+    return 0;
+  }
+  if (frames > reader.seenFrames) {
+    reader.held = (counter.total - reader.seenTotal) / (frames - reader.seenFrames) / 1e6;
+    reader.seenTotal = counter.total;
+    reader.seenFrames = frames;
+  }
+  return reader.held;
+}
+
+function readWebGlFrame(record: GpuLeaseRecord): number {
+  const counter = record.instrumentation?.gpuFrameTimeCounter;
+  return counter ? counter.current / 1e6 : 0;
+}
+
+function leasedTimer(engine: AbstractEngine): GpuTimer {
+  let lease: GpuFrameTimeLease | null = null;
   const stop = (): void => {
-    if (owned) engine.enableGPUTimingMeasurements = false;
-    owned = false;
-    held = 0;
+    lease?.release();
+    lease = null;
   };
   return {
     read(enabled) {
@@ -92,41 +185,10 @@ function webGpuPassTimer(engine: WebGPUEngine): GpuTimer {
         stop();
         return 0;
       }
-      if (!engine.enableGPUTimingMeasurements) {
-        engine.enableGPUTimingMeasurements = true;
-        owned = true;
-        seenTotal = 0;
-        seenFrames = 0;
-      }
-      const counter = engine.gpuTimeInFrameForMainPass?.counter;
-      if (!counter) return 0;
-      // The counter's newest frame may still be collecting its passes; the ones before it are complete.
-      const frames = Math.max(0, counter.count - 1);
-      if (frames > seenFrames) {
-        held = (counter.total - seenTotal) / (frames - seenFrames) / 1e6;
-        seenTotal = counter.total;
-        seenFrames = frames;
-      }
-      return held;
+      lease ??= acquireGpuFrameTime(engine);
+      return lease.read();
     },
     dispose: stop,
-  };
-}
-
-/** WebGL: the disjoint timer query times whole frames, one in every few. */
-function webGlFrameTimer(engine: AbstractEngine): GpuTimer {
-  let instrumentation: EngineInstrumentation | null = null;
-  return {
-    read(enabled) {
-      if (!enabled) {
-        if (instrumentation) instrumentation.captureGPUFrameTime = false;
-        return 0;
-      }
-      if (!instrumentation) instrumentation = new EngineInstrumentation(engine);
-      if (!instrumentation.captureGPUFrameTime) instrumentation.captureGPUFrameTime = true;
-      return instrumentation.gpuFrameTimeCounter.current / 1e6;
-    },
-    dispose: () => instrumentation?.dispose(),
   };
 }
 

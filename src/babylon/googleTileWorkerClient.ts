@@ -1,4 +1,4 @@
-/** Worker-owned Google preparation. Structural protocol avoids a native dependency. */
+/** Worker-owned Google preparation. Structural protocol avoids a WASM dependency. */
 export interface GooglePreparedPrimitive {
   positions: Float32Array; uvs: Float32Array; indices: Uint32Array;
   sourceIndexComponentType: 5121 | 5123; materialIndex: number;

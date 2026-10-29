@@ -107,4 +107,11 @@ describe("injected Renderer panel", () => {
   it("keeps the Sky exposure/fill controls out of the renderer catalogue", () => {
     expect(RENDERER_PARAMETERS.some(spec => spec.id === "renderer.exposureEV" || spec.id === "renderer.ambientFillMultiplier")).toBe(false);
   });
+
+  it("homes upscaling and dynamic resolution on the renderer tab", () => {
+    for (const id of ["renderer.upscaling", "renderer.upscalingSharpness", "renderer.dynamicResolution", "renderer.targetFps"]) {
+      const spec = RENDERER_PARAMETERS.find(entry => entry.id === id);
+      expect(spec?.home).toMatchObject({ tab: "renderer", section: "main" });
+    }
+  });
 });

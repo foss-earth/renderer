@@ -24,7 +24,10 @@ export type { TextureTransferTracker, CompletionTextureTransferTracker, SettledT
 export type { TextureTransferOutcome, TextureTransferRetirement, TextureTransferAdmission, TryAdmitTextureTransfer } from "../textureTransferTypes.js";
 export { createImageRegionDevicePorts } from "./imageRegionDevice.js";
 export type { ImageRegionDevicePorts, ImageRegionTextureRequest } from "./imageRegionDevice.js";
-export { profileBabylonScene, canTimeGpuFrames } from "./frameProfiler.js";
+export { profileBabylonScene, canTimeGpuFrames, acquireGpuFrameTime } from "./frameProfiler.js";
+export type { GpuFrameTimeLease } from "./frameProfiler.js";
+export { createSpatialUpscalingPasses, registerSpatialUpscalingShaders } from "./spatialUpscalingPostProcess.js";
+export type { SpatialUpscalingPasses, SpatialUpscalingSync } from "./spatialUpscalingPostProcess.js";
 export { createFrameProfileSession, bindFrameProfileSettings } from "./frameProfileSession.js";
 export type { FrameProfileSession, FrameProfileSessionOptions, GpuTimingStatus } from "./frameProfileSession.js";
 export { createGpuMemorySource, textureBytes, texelBytes, ownerFromName } from "./gpuMemorySource.js";

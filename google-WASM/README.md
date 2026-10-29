@@ -27,12 +27,12 @@ createGoogleWorkerKernel(self, { requestedTier,
 ```
 
 The worker kernel runs the TypeScript reference and the single-threaded WASM
-core under the same protocol. It bit-compares the first supported native
+core under the same protocol. It bit-compares the first supported WASM
 geometry, indices, UVs, JPEG bytes and matrix before admission; a startup,
 decode or parity failure selects the worker TypeScript implementation with an
 explicit reason. `requestedTier: "threaded"` reports its unavailable artifact
 and uses worker TypeScript. The app's Google preparation worker selects the
-tier from `native.core.google`.
+tier from `wasm.core.google`.
 
 Host decode requests carry `colorSpaceConversion`: `none` for Babylon WebGPU,
 `default` for WebGL. JPEGs carrying EXIF metadata keep the original image
@@ -40,7 +40,7 @@ loader. ICC-bearing JPEGs also keep the original loader in WebGL: synthetic
 Display P3 tests found that direct bitmap upload and worker canvas
 normalization both differed from its HTML-image path. WebGPU uses the same
 bitmap colour convention as its original loader. These are explicit
-quality-preserving fallbacks, not native successes. The supported geometry
+quality-preserving fallbacks, not WASM successes. The supported geometry
 profile has one matrix node and one or two unlit primitives; other
 hierarchies, attributes, materials, extensions and content envelopes keep the
 original loader.

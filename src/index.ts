@@ -22,3 +22,7 @@ export {
 export type { RendererAdvice, RendererAdviceId, RendererFacts, BrowserIdentity, BrowserFamily, BrowserPlatform } from "./rendererAdvice.js";
 export * from "./profiling/index.js";
 export type { TextureTransferOutcome, TextureTransferRetirement, TextureTransferAdmission, TryAdmitTextureTransfer } from "./textureTransferTypes.js";
+export { DynamicResolutionController, DYNAMIC_RESOLUTION_UNTIMED_NOTE } from "./dynamicResolution.js";
+export type { DynamicResolutionOptions, DynamicResolutionSample } from "./dynamicResolution.js";
+export { resolveSpatialUpscalingState, rcasSharpnessToAttenuation, SPATIAL_UPSCALING_MODES, SPATIAL_UPSCALING_WEBGL1_NOTE } from "./spatialUpscaling.js";
+export type { SpatialUpscalingMode, SpatialUpscalingRequest, SpatialUpscalingState } from "./spatialUpscaling.js";

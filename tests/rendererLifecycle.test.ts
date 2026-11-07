@@ -1,4 +1,4 @@
-import { FreeCamera, Mesh, NullEngine, Scene, Vector3, type Camera } from "@babylonjs/core";
+import { FreeCamera, Mesh, MeshBuilder, NullEngine, Scene, StandardMaterial, SubMesh, Vector3, type Camera } from "@babylonjs/core";
 import { createSettingsRegistry } from "@foss-earth/ui/settings";
 import { describe, expect, it, vi } from "vitest";
 import { createBabylonRendererLifecycle } from "../src/babylon/rendererLifecycle.js";
@@ -411,6 +411,43 @@ describe("renderer-only runtime lifecycle", () => {
       expect(offered()).toEqual([shown.name]);
     } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
     expect(f.scene.getActiveMeshCandidates).toBe(babylon);
+  });
+
+  it("draws opaque meshes in Babylon's order by default, and near to far while the setting is on", () => {
+    const f = fixture();
+    const camera = new FreeCamera("camera", new Vector3(0, 0, -1), f.scene);
+    camera.setTarget(Vector3.Zero());
+    f.scene.activeCamera = camera;
+    for (const [name, z] of [["far", 6], ["near", 2]] as const) {
+      const box = MeshBuilder.CreateBox(name, { size: 0.5 }, f.scene);
+      box.position.z = z;
+      box.material = new StandardMaterial(name, f.scene);
+    }
+    const drawn = (): string[] => {
+      const order: string[] = [];
+      const render = SubMesh.prototype.render;
+      const spy = vi.spyOn(SubMesh.prototype, "render").mockImplementation(function (this: SubMesh, alpha: boolean) { order.push(this.getMesh().name); return render.call(this, alpha); });
+      try { f.scene.render(); } finally { spy.mockRestore(); }
+      return order;
+    };
+    expect(drawn()).toEqual(["far", "near"]);
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgl2" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      expect(f.settings.get("renderer.opaqueNearToFar")).toBe(false);
+      expect(drawn()).toEqual(["far", "near"]);
+      expect(f.scene.onBeforeRenderingGroupObservable.hasObservers()).toBe(false);
+      f.requestRender.mockClear();
+      f.settings.set("renderer.opaqueNearToFar", true);
+      expect(drawn()).toEqual(["near", "far"]);
+      expect(f.requestRender).toHaveBeenCalled();
+      f.settings.set("renderer.opaqueNearToFar", false);
+      expect(drawn()).toEqual(["far", "near"]);
+      expect(f.scene.onBeforeRenderingGroupObservable.hasObservers()).toBe(false);
+      expect(f.scene.onAfterRenderingGroupObservable.hasObservers()).toBe(false);
+      f.settings.set("renderer.opaqueNearToFar", true);
+    } finally { lifecycle.dispose(); }
+    expect(drawn()).toEqual(["far", "near"]);
+    f.scene.dispose(); f.engine.dispose();
   });
 });
 

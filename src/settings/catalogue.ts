@@ -142,6 +142,18 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/babylon/presentationCandidates.ts",
   },
   {
+    id: "renderer.opaqueNearToFar",
+    label: "Draw near meshes first",
+    description: "Draws the globe's opaque meshes nearest first, so a GPU can skip shading what is already covered, instead of grouped by material, which for map tiles is about the order they loaded. A mesh whose picture could depend on the order, such as the sky dome, keeps its place, and only the meshes between such meshes are reordered.",
+    unit: "none",
+    kind: "boolean",
+    default: false,
+    defaultReason: "Held for the tolerance test (performance limits audit L24, ledger P-113): with Google tiles it changed 41-61 of 1,024,000 pixels, by up to 8 levels, not all shown to be depth ties, and it gained nothing measurable here, on an Apple GPU or in software rendering.",
+    home: { tab: RENDERER_TAB, section: "main", level: "all" },
+    appliesLive: true,
+    source: "src/babylon/opaqueOrder.ts",
+  },
+  {
     id: "renderer.clipping",
     label: "Depth range",
     description: "How the globe camera's nearest and farthest drawn distances are set: from its height each frame, or fixed. An app's own cameras, such as a cockpit's, keep theirs.",

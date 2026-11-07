@@ -7,6 +7,7 @@ import { resolveSpatialUpscalingState } from "../spatialUpscaling.js";
 import type { RendererSelection } from "./createRendererMode.js";
 import { createSceneUpdates } from "./sceneUpdates.js";
 import { createPresentationCandidates, SKIP_DISABLED_MESHES_ID } from "./presentationCandidates.js";
+import { createOpaqueOrder, OPAQUE_NEAR_TO_FAR_ID } from "./opaqueOrder.js";
 import { acquireGpuFrameTime, canTimeGpuFrames, type GpuFrameTimeLease } from "./frameProfiler.js";
 import { createSpatialUpscalingPasses, type SpatialUpscalingPasses } from "./spatialUpscalingPostProcess.js";
 
@@ -67,6 +68,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
   const restored = new Set<() => void>();
   const stops: Array<() => void> = [];
   let candidates: ReturnType<typeof createPresentationCandidates> | undefined;
+  let opaqueOrder: ReturnType<typeof createOpaqueOrder> | undefined;
   let updates: ReturnType<typeof createSceneUpdates> | undefined;
   let passes: SpatialUpscalingPasses | undefined;
   let governor: DynamicResolutionController | null = null;
@@ -96,7 +98,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     if (disposed) return;
     disposed = true;
     const failures: unknown[] = [];
-    for (const stop of [...stops.splice(0), () => updates?.dispose(), () => candidates?.dispose()]) {
+    for (const stop of [...stops.splice(0), () => updates?.dispose(), () => candidates?.dispose(), () => opaqueOrder?.dispose()]) {
       try { stop(); } catch (error) { failures.push(error); }
     }
     lost.clear(); restored.clear();
@@ -107,6 +109,8 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     candidates!.setEnabled(settings.has("renderer.experiments.presentationCandidates") && settings.get("renderer.experiments.presentationCandidates") === true);
     // On unless a host registers the setting and turns it off.
     candidates!.setSkipDisabled(!settings.has(SKIP_DISABLED_MESHES_ID) || settings.get(SKIP_DISABLED_MESHES_ID) !== false);
+    // Held (audit L24): off unless a host registers the setting and turns it on.
+    opaqueOrder!.setNearToFar(settings.has(OPAQUE_NEAR_TO_FAR_ID) && settings.get(OPAQUE_NEAR_TO_FAR_ID) === true);
   };
   const syncGovernor = (): void => {
     const enabled = settings.has("renderer.dynamicResolution") && settings.get("renderer.dynamicResolution") === true;
@@ -161,6 +165,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
   };
   try {
     candidates = createPresentationCandidates(scene, options.presentationLayer);
+    opaqueOrder = createOpaqueOrder(scene);
     applyCandidates();
     settings.setDeviceContext({
       rendererMode: renderer.mode,
@@ -188,6 +193,7 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     stops.push(settings.watch("renderer.frameRateCap", () => { if (!disposed) scheduler.requestRender(); }));
     if (settings.has("renderer.experiments.presentationCandidates")) stops.push(settings.watch("renderer.experiments.presentationCandidates", () => { if (disposed) return; applyCandidates(); scheduler.requestRender(); }));
     if (settings.has(SKIP_DISABLED_MESHES_ID)) stops.push(settings.watch(SKIP_DISABLED_MESHES_ID, () => { if (disposed) return; applyCandidates(); scheduler.requestRender(); }));
+    if (settings.has(OPAQUE_NEAR_TO_FAR_ID)) stops.push(settings.watch(OPAQUE_NEAR_TO_FAR_ID, () => { if (disposed) return; applyCandidates(); scheduler.requestRender(); }));
     if (options.applyClipping) for (const id of ["renderer.clipping", "renderer.clipping.fixed"]) stops.push(settings.watch(id, () => { if (disposed) return; options.applyClipping!(); scheduler.requestRender(); }));
     for (const id of ["renderer.upscaling", "renderer.upscalingSharpness", "renderer.dynamicResolution", "renderer.targetFps"]) {
       if (settings.has(id)) stops.push(settings.watch(id, onPresentationChange));

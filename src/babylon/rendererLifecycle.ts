@@ -1,6 +1,6 @@
 import type { Scene } from "@babylonjs/core";
 import { DynamicResolutionController, DYNAMIC_RESOLUTION_UNTIMED_NOTE } from "../dynamicResolution.js";
-import type { RenderScheduler } from "../renderScheduler.js";
+import type { RenderScheduler, WorkRenderScheduler } from "../renderScheduler.js";
 import type { RendererResourceLifecycle } from "../resourceLifecycle.js";
 import type { ReadinessPolicy, ReadinessTimers } from "../readiness.js";
 import { resolveSpatialUpscalingState } from "../spatialUpscaling.js";
@@ -173,11 +173,16 @@ export function createBabylonRendererLifecycle(options: BabylonRendererLifecycle
     stops.push(releaseGovernor);
     applyResolutionScale();
     updates = createSceneUpdates({ scene, requestRender: scheduler.requestRender, isPreparingFrame: options.isPreparingFrame, timers: options.timers, readinessPolicy: options.readinessPolicy });
-    stops.push(scheduler.onActiveChange(active => {
+    // Once nothing more is asked to be drawn, wait for what the last frame
+    // skipped. A scheduler that tells presentations from work says so even
+    // while work keeps its frames coming, as it does while maps load.
+    const presentations = scheduler as Partial<Pick<WorkRenderScheduler, "onPresentingChange">>;
+    const onDrawing = (drawing: boolean): void => {
       if (disposed) return;
-      if (active) updates!.cancelSettle();
+      if (drawing) updates!.cancelSettle();
       else if (!deviceLost && !platform.isHidden()) updates!.settle();
-    }));
+    };
+    stops.push(typeof presentations.onPresentingChange === "function" ? presentations.onPresentingChange(onDrawing) : scheduler.onActiveChange(onDrawing));
     const onPresentationChange = (): void => { if (disposed) return; applyResolutionScale(); renderer.engine.resize(); scheduler.requestRender(); };
     stops.push(settings.watch("renderer.resolutionScale", onPresentationChange));
     stops.push(settings.watch("renderer.frameRateCap", () => { if (!disposed) scheduler.requestRender(); }));

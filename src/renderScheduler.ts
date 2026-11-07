@@ -4,8 +4,14 @@ export type RenderFrameCallback = (time: number) => void;
 export interface RenderSchedulerOptions {
   /** Present one changed scene. Called inside the host animation frame. */
   tick(): void;
-  /** Prepare hidden work using that same frame timestamp, without painting. */
-  work?: (timeMs: number) => void;
+  /**
+   * Prepare hidden work using that same frame timestamp, without painting.
+   * `presenting` says whether this frame also presents, as far as is known
+   * before the work: work that the presentation does itself can wait for it.
+   * Work may still ask for a presentation, which this frame then makes when
+   * the presentation interval allows.
+   */
+  work?: (timeMs: number, frame?: WorkFrame) => void;
   /** Only admitted runnable/in-flight work; capacity refusal waits for a wake. */
   shouldKeepWorking?: () => boolean;
   /** Keep presenting while the host's motion/inertia needs changed frames. */
@@ -15,6 +21,11 @@ export interface RenderSchedulerOptions {
   /** The host supplies its single asynchronous animation-frame authority. */
   requestFrame: (cb: RenderFrameCallback) => number;
   cancelFrame: (handle: number) => void;
+}
+
+export interface WorkFrame {
+  /** A presentation was asked for and the presentation interval allows it. */
+  presenting: boolean;
 }
 
 /** Legacy structural ports are unchanged; existing host mocks need no new member. */
@@ -31,6 +42,14 @@ export interface RenderScheduler {
 export interface WorkRenderScheduler extends RenderScheduler {
   /** Schedule hidden preparation; does not request scene presentation. */
   requestWork(): void;
+  /**
+   * Whether a presentation is asked for: a render request or a continuous
+   * hold, while not paused or stopped. Unlike `onActiveChange`, it turns
+   * false after the last asked-for frame even while work keeps frames
+   * coming, so a host can tell when nothing more will be drawn.
+   */
+  isPresenting(): boolean;
+  onPresentingChange(listener: (presenting: boolean) => void): () => void;
 }
 
 export function createRenderScheduler(options: RenderSchedulerOptions): WorkRenderScheduler {
@@ -48,7 +67,10 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
   let lifecycleGeneration = 0;
   let activityGeneration = 0;
   let lastPresentedAt: number | null = null;
+  let presenting = false;
+  let presentingGeneration = 0;
   const activeListeners = new Set<(active: boolean) => void>();
+  const presentingListeners = new Set<(presenting: boolean) => void>();
   const throwFailures = (failures: unknown[], message: string): void => {
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1) throw new AggregateError(failures, message);
@@ -65,6 +87,24 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
       try { listener(next); } catch (error) { failures.push(error); }
     }
     throwFailures(failures, "Scheduler activity notification failed.");
+  }
+  /** Notifies a change in whether a presentation is asked for. */
+  function syncPresenting(): void {
+    const next = !stopped && !paused && (renderRequested || continuousRefs > 0);
+    if (presenting === next) return;
+    presenting = next;
+    const generation = ++presentingGeneration;
+    const failures: unknown[] = [];
+    for (const listener of [...presentingListeners]) {
+      if (generation !== presentingGeneration) break;
+      if (!presentingListeners.has(listener)) continue;
+      try { listener(next); } catch (error) { failures.push(error); }
+    }
+    throwFailures(failures, "Scheduler presentation notification failed.");
+  }
+  /** Outside its interval, a presentation would come too soon after the last. */
+  function presentationDue(time: number, interval: number): boolean {
+    return !(interval > 0 && lastPresentedAt !== null && time - lastPresentedAt < interval - 1);
   }
   function live(generation: number): boolean {
     return !stopped && !paused && lifecycleGeneration === generation;
@@ -98,7 +138,11 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
     workRequested = false;
     try {
       if (wantsWork && options.work) {
-        try { options.work(time); } catch (error) { failures.push(error); }
+        let presentingNow = false;
+        if (renderRequested || continuousRefs > 0) {
+          try { presentingNow = presentationDue(time, options.minFrameIntervalMs?.() ?? 0); } catch (error) { failures.push(error); }
+        }
+        if (!failures.length) { try { options.work(time, { presenting: presentingNow }); } catch (error) { failures.push(error); } }
         if (!failures.length && live(generation) && options.shouldKeepWorking) {
           try { if (options.shouldKeepWorking()) workRequested = true; } catch (error) { failures.push(error); }
         }
@@ -107,7 +151,7 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
         let interval = 0;
         try { interval = options.minFrameIntervalMs?.() ?? 0; } catch (error) { failures.push(error); }
         // The source jitter allowance remains presentation-only.
-        if (!failures.length && live(generation) && !(interval > 0 && lastPresentedAt !== null && time - lastPresentedAt < interval - 1)) {
+        if (!failures.length && live(generation) && presentationDue(time, interval)) {
           lastPresentedAt = time; renderRequested = false;
           try { options.tick(); } catch (error) { failures.push(error); }
           if (!failures.length && live(generation)) {
@@ -122,7 +166,9 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
       inFrame = false;
       // A failed callback does not silently paint/retry. The host chooses its
       // existing fatal/restart policy; explicit later requests can resume it.
-      if (!failures.length && !stopped && !paused && (workRequested || renderRequested || continuousRefs > 0)) {
+      const continues = !failures.length && !stopped && !paused && (workRequested || renderRequested || continuousRefs > 0);
+      try { syncPresenting(); } catch (error) { failures.push(error); }
+      if (continues) {
         try { schedule(); } catch (error) { failures.push(error); }
       } else {
         try { setActive(false); } catch (error) { failures.push(error); }
@@ -138,13 +184,19 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
     },
     requestRender(): void {
       if (stopped) return;
-      renderRequested = true; schedule();
+      renderRequested = true; syncPresenting(); schedule();
     },
     beginContinuous(): void {
       if (stopped) return;
-      continuousRefs += 1; renderRequested = true; schedule();
+      continuousRefs += 1; renderRequested = true; syncPresenting(); schedule();
     },
     endContinuous(): void { if (continuousRefs > 0) continuousRefs -= 1; },
+    isPresenting(): boolean { return presenting; },
+    onPresentingChange(listener): () => void {
+      if (stopped) return () => undefined;
+      presentingListeners.add(listener);
+      return () => { presentingListeners.delete(listener); };
+    },
     isContinuous(): boolean { return continuousRefs > 0; },
     setPaused(next: boolean): void {
       if (stopped || next === paused) return;
@@ -155,13 +207,14 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
         const frame = pending; pending = null;
         const failures: unknown[] = [];
         try { if (frame?.handle) cancelFrame(frame.handle); } catch (error) { failures.push(error); }
+        try { syncPresenting(); } catch (error) { failures.push(error); }
         if (lifecycleGeneration === generation && paused && !stopped) {
           try { setActive(false); } catch (error) { failures.push(error); }
         }
         throwFailures(failures, "Scheduler pause cleanup failed.");
       } else {
         // Preserve the source's first presentation on unpause, even when idle.
-        renderRequested = true; schedule();
+        renderRequested = true; syncPresenting(); schedule();
       }
     },
     stop(): void {
@@ -170,6 +223,8 @@ export function createRenderScheduler(options: RenderSchedulerOptions): WorkRend
       const frame = pending; pending = null;
       const failures: unknown[] = [];
       try { if (frame?.handle) cancelFrame(frame.handle); } catch (error) { failures.push(error); }
+      try { syncPresenting(); } catch (error) { failures.push(error); }
+      finally { presentingListeners.clear(); }
       try { setActive(false); } catch (error) { failures.push(error); }
       finally { activeListeners.clear(); }
       throwFailures(failures, "Scheduler stop cleanup failed.");

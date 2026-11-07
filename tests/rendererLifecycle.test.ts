@@ -6,7 +6,7 @@ import { DYNAMIC_RESOLUTION_UNTIMED_NOTE } from "../src/dynamicResolution.js";
 import { SPATIAL_UPSCALING_WEBGL1_NOTE } from "../src/spatialUpscaling.js";
 import { createRendererResourceLifecycle } from "../src/resourceLifecycle.js";
 import { RENDERER_PARAMETERS, RENDERER_OWNED_EXPERIMENT_PARAMETERS } from "../src/settings/catalogue.js";
-import type { RenderScheduler } from "../src/renderScheduler.js";
+import { createRenderScheduler, type RenderScheduler } from "../src/renderScheduler.js";
 
 function fixture() {
   const engine = new NullEngine();
@@ -224,6 +224,35 @@ describe("renderer-only runtime lifecycle", () => {
       f.activeChanged(false);
       expect(ready).toHaveBeenCalledTimes(2);
     } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); await vi.advanceTimersByTimeAsync(2); vi.useRealTimers(); }
+  });
+  it("draws a mesh the last frame skipped once it is ready, while work keeps the scheduler's frames coming", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const f = fixture(); f.platform.isHidden = () => false;
+    const pending = new Mesh("pending shader", f.scene); let isReady = false;
+    vi.spyOn(pending, "isReady").mockImplementation(() => isReady);
+    vi.spyOn(f.scene, "getActiveMeshes").mockReturnValue({ length: 1, data: [pending] } as never);
+    vi.spyOn(f.scene, "render").mockImplementation(() => {});
+    const frames: Array<(time: number) => void> = [];
+    let drawn = 0, working = true;
+    const state: { lifecycle?: ReturnType<typeof createBabylonRendererLifecycle> } = {};
+    const scheduler = createRenderScheduler({
+      work() { if (working) scheduler.requestWork(); },
+      tick() { drawn += 1; state.lifecycle!.renderFrame(); },
+      requestFrame: callback => frames.push(callback), cancelFrame: () => {},
+    });
+    const run = (time: number) => { for (const callback of frames.splice(0)) callback(time); };
+    const lifecycle = state.lifecycle = createBabylonRendererLifecycle({ ...f, scheduler, renderer: { engine: f.engine, requested: "auto", mode: "webgl2" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      scheduler.requestRender(); run(0);
+      expect(drawn).toBe(1); expect(scheduler.isActive()).toBe(true); expect(scheduler.isPresenting()).toBe(false);
+      for (let time = 16; time < 160; time += 16) { run(time); await vi.advanceTimersByTimeAsync(16); }
+      expect(drawn).toBe(1);
+      // The shader is ready: one frame, with work still going.
+      isReady = true;
+      for (let time = 160; time < 400; time += 16) { run(time); await vi.advanceTimersByTimeAsync(16); }
+      expect(drawn).toBe(2); expect(scheduler.isActive()).toBe(true);
+      working = false; run(400); expect(frames).toHaveLength(0);
+    } finally { lifecycle.dispose(); scheduler.stop(); f.scene.dispose(); f.engine.dispose(); vi.useRealTimers(); }
   });
   it("attempts restore peers and one frame request despite failures, retaining ordered errors", () => {
     const f = fixture();

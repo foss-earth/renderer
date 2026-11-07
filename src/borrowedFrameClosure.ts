@@ -1,4 +1,4 @@
-import type { RenderSchedulerOptions } from "./renderScheduler.js";
+import type { RenderSchedulerOptions, WorkFrame } from "./renderScheduler.js";
 
 /** Structural cancellation keeps the core declaration usable without DOM libs. */
 export interface BorrowedFrameSignal {
@@ -16,7 +16,8 @@ export interface BorrowedFrameClosureOptions {
   minFrameIntervalMs(): number;
   stopScheduler(): void;
   onFrameError(error: unknown): void;
-  resourceWork?: { prepare(nowMs: number): void };
+  /** Hidden work on every frame the scheduler runs; `frame` says whether the frame also presents. */
+  resourceWork?: { prepare(nowMs: number, frame?: WorkFrame): void };
   /** Bindings/features only. The borrowed device must outlive whenSettled(). */
   cleanup: readonly (() => void)[];
   /** Actual owner drains, invoked after cancellation/cleanup and frame closure. */
@@ -89,11 +90,11 @@ export function createBorrowedFrameClosure(options: BorrowedFrameClosureOptions)
         cancelFrame: handle => frames.cancelFrame(handle),
         shouldKeepRendering: () => !disposed && options.shouldKeepRendering(),
         minFrameIntervalMs: () => options.minFrameIntervalMs(),
-        work(timeMs) {
+        work(timeMs, frame) {
           if (disposed || !options.resourceWork) return;
           inFrame = true;
           const errors: unknown[] = [];
-          try { options.resourceWork.prepare(timeMs); } catch (error) { errors.push(error); }
+          try { options.resourceWork.prepare(timeMs, frame); } catch (error) { errors.push(error); }
           finally { close(errors); }
           report(errors, "Borrowed resource work failed.");
         },

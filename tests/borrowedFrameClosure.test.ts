@@ -39,4 +39,14 @@ describe("borrowed frame closure", () => {
     let done = false; const rejection = expect(closure.whenSettled().finally(() => { done = true; })).rejects.toThrow("retirement");
     await Promise.resolve(); expect(done).toBe(false); native.resolve(); await rejection;
   });
+  it("hands its hidden work the frame's timestamp and whether the frame presents", () => {
+    const prepare = vi.fn();
+    const closure = createBorrowedFrameClosure({ presentation: () => undefined, prepareFrame() {}, afterFrame() {},
+      shouldKeepRendering: () => false, minFrameIntervalMs: () => 0, stopScheduler() {}, onFrameError() {}, cleanup: [],
+      resourceWork: { prepare } });
+    const options = closure.schedulerOptions({ requestFrame: () => 1, cancelFrame() {} });
+    options.work!(7, { presenting: false }); options.work!(8, { presenting: true });
+    expect(prepare.mock.calls).toEqual([[7, { presenting: false }], [8, { presenting: true }]]);
+    expect(closure.inFrame).toBe(false);
+  });
 });

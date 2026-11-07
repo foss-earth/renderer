@@ -274,8 +274,64 @@ describe("work and presentation on one supplied frame queue", () => {
     const scheduler = createRenderScheduler({ tick, work, requestFrame: raf.request, cancelFrame: raf.cancel });
     scheduler.onActiveChange(changed); scheduler.requestWork(); scheduler.requestWork();
     expect(raf.pending()).toBe(1); raf.run(42);
-    expect(work).toHaveBeenCalledExactlyOnceWith(42); expect(tick).not.toHaveBeenCalled();
+    expect(work).toHaveBeenCalledExactlyOnceWith(42, { presenting: false }); expect(tick).not.toHaveBeenCalled();
     expect(raf.pending()).toBe(0); expect(changed.mock.calls).toEqual([[true], [false]]); scheduler.stop();
+  });
+  it("tells work whether its frame presents: asked for and within the presentation interval", () => {
+    const raf = manualFrames(), seen: Array<[number, boolean, boolean]> = [];
+    let ticked = false;
+    const scheduler = createRenderScheduler({
+      work(time, frame) { seen.push([time, frame!.presenting, ticked]); },
+      tick() { ticked = true; }, minFrameIntervalMs: () => 30, requestFrame: raf.request, cancelFrame: raf.cancel,
+    });
+    // Work only; then a render; then one asked for too soon after it; then the same one once the interval allows.
+    scheduler.requestWork(); raf.run(0);
+    scheduler.requestRender(); raf.run(10);
+    ticked = false; scheduler.requestRender(); raf.run(20);
+    expect(ticked).toBe(false);
+    raf.run(40);
+    expect(ticked).toBe(true);
+    expect(seen).toEqual([[0, false, false], [10, true, false], [20, false, false], [40, true, false]]);
+    // A render asked for by the work itself is drawn in the same frame, though the hint said no.
+    ticked = false;
+    const asks = createRenderScheduler({
+      work(_time, frame) { seen.push([_time, frame!.presenting, ticked]); if (!frame!.presenting) asks.requestRender(); },
+      tick() { ticked = true; }, requestFrame: raf.request, cancelFrame: raf.cancel,
+    });
+    asks.requestWork(); raf.run(50);
+    expect(seen.at(-1)).toEqual([50, false, false]); expect(ticked).toBe(true);
+    scheduler.stop(); asks.stop();
+  });
+  it("says when presentations stop, though work keeps frames coming", () => {
+    const raf = manualFrames(), presenting = vi.fn(), active = vi.fn(); let keepWorking = true;
+    const scheduler = createRenderScheduler({
+      work() { if (keepWorking) scheduler.requestWork(); }, tick() {}, requestFrame: raf.request, cancelFrame: raf.cancel,
+    });
+    scheduler.onPresentingChange(presenting); scheduler.onActiveChange(active);
+    scheduler.requestRender();
+    expect(scheduler.isPresenting()).toBe(true); expect(presenting.mock.calls).toEqual([[true]]);
+    raf.run(1);
+    // Drawn; work goes on, so the scheduler stays active, but nothing more is asked to be drawn.
+    expect(scheduler.isPresenting()).toBe(false); expect(presenting.mock.calls).toEqual([[true], [false]]);
+    expect(scheduler.isActive()).toBe(true); expect(active.mock.calls).toEqual([[true]]);
+    raf.run(2); raf.run(3);
+    expect(presenting).toHaveBeenCalledTimes(2);
+    // A continuous hold presents until its last frame after the hold ends.
+    scheduler.beginContinuous(); raf.run(4); raf.run(5);
+    expect(presenting.mock.calls.at(-1)).toEqual([true]);
+    scheduler.endContinuous(); raf.run(6);
+    expect(presenting.mock.calls.at(-1)).toEqual([false]);
+    // Pause, unpause and stop.
+    scheduler.requestRender(); scheduler.setPaused(true);
+    expect(presenting.mock.calls.slice(-2)).toEqual([[true], [false]]);
+    scheduler.setPaused(false); expect(scheduler.isPresenting()).toBe(true);
+    keepWorking = false; raf.run(7); expect(raf.pending()).toBe(0);
+    expect(active.mock.calls.at(-1)).toEqual([false]); expect(scheduler.isPresenting()).toBe(false);
+    scheduler.requestRender(); scheduler.stop();
+    expect(presenting.mock.calls.at(-1)).toEqual([false]); expect(scheduler.isPresenting()).toBe(false);
+    const after = presenting.mock.calls.length;
+    scheduler.onPresentingChange(presenting); scheduler.requestRender();
+    expect(presenting).toHaveBeenCalledTimes(after);
   });
   it("coalesces hidden and visible requests into one work phase and one scene presentation", () => {
     const raf = manualFrames(), tick = vi.fn(), work = vi.fn();

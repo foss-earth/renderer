@@ -362,6 +362,27 @@ describe("renderer-only runtime lifecycle", () => {
       expect(scaling).toHaveBeenLastCalledWith(1);
     } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
   });
+
+  it("offers Babylon only enabled meshes by default, and every mesh while the setting is off", () => {
+    const f = fixture();
+    const babylon = f.scene.getActiveMeshCandidates;
+    const shown = new Mesh("shown", f.scene), hidden = new Mesh("hidden", f.scene);
+    hidden.setEnabled(false);
+    const offered = () => { const list = f.scene.getActiveMeshCandidates(); return list.data.slice(0, list.length).map(mesh => mesh.name); };
+    const lifecycle = createBabylonRendererLifecycle({ ...f, renderer: { engine: f.engine, requested: "auto", mode: "webgl2" }, presentationLayer: 0x10000000, isPreparingFrame: () => false });
+    try {
+      expect(f.settings.get("renderer.skipDisabledMeshes")).toBe(true);
+      expect(offered()).toEqual([shown.name]);
+      f.requestRender.mockClear();
+      f.settings.set("renderer.skipDisabledMeshes", false);
+      expect(f.scene.getActiveMeshCandidates).toBe(babylon);
+      expect(offered()).toEqual([shown.name, hidden.name]);
+      expect(f.requestRender).toHaveBeenCalled();
+      f.settings.set("renderer.skipDisabledMeshes", true);
+      expect(offered()).toEqual([shown.name]);
+    } finally { lifecycle.dispose(); f.scene.dispose(); f.engine.dispose(); }
+    expect(f.scene.getActiveMeshCandidates).toBe(babylon);
+  });
 });
 
 function attached(camera: Camera): number {

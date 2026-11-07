@@ -130,6 +130,18 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     source: "src/babylon/rendererLifecycle.ts",
   },
   {
+    id: "renderer.skipDisabledMeshes",
+    label: "Skip hidden meshes",
+    description: "Each frame, offers the renderer only the meshes that are switched on, so map tiles kept in memory but not shown cost nothing to pass over. Off, it visits every mesh and skips those itself.",
+    unit: "none",
+    kind: "boolean",
+    default: true,
+    defaultReason: "The same picture with less work: the renderer skips a switched-off mesh before drawing anything of it (performance limits audit L8).",
+    home: { tab: RENDERER_TAB, section: "main", level: "all" },
+    appliesLive: true,
+    source: "src/babylon/presentationCandidates.ts",
+  },
+  {
     id: "renderer.clipping",
     label: "Depth range",
     description: "How the globe camera's nearest and farthest drawn distances are set: from its height each frame, or fixed. An app's own cameras, such as a cockpit's, keep theirs.",

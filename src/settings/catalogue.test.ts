@@ -10,14 +10,15 @@ const DEVICE: DeviceContext = {
 const ADDED = ["renderer.upscaling", "renderer.upscalingSharpness", "renderer.dynamicResolution", "renderer.targetFps"] as const;
 
 describe("renderer settings catalogue", () => {
-  it("adds upscaling and dynamic resolution to the six original renderer parameters", () => {
-    expect(RENDERER_PARAMETERS).toHaveLength(10);
+  it("adds upscaling, dynamic resolution and skipping hidden meshes to the six original renderer parameters", () => {
+    expect(RENDERER_PARAMETERS).toHaveLength(11);
     expect(RENDERER_PARAMETERS.map(spec => spec.id)).toEqual([
       "renderer.backend",
       "renderer.resolutionScale",
       "renderer.antialias",
       "renderer.frameRateCap",
       ...ADDED,
+      "renderer.skipDisabledMeshes",
       "renderer.clipping",
       "renderer.clipping.fixed",
     ]);
@@ -30,6 +31,7 @@ describe("renderer settings catalogue", () => {
     expect(settings.get("renderer.upscalingSharpness")).toBe(0.2);
     expect(settings.get("renderer.dynamicResolution")).toBe(false);
     expect(settings.get("renderer.targetFps")).toBe(60);
+    expect(settings.get("renderer.skipDisabledMeshes")).toBe(true);
     const sharpness = RENDERER_PARAMETERS.find(spec => spec.id === "renderer.upscalingSharpness");
     const target = RENDERER_PARAMETERS.find(spec => spec.id === "renderer.targetFps");
     expect(sharpness?.kind === "number" && sharpness.bounds ? [sharpness.step, sharpness.bounds(DEVICE).min, sharpness.bounds(DEVICE).max] : []).toEqual([0.05, 0, 1]);

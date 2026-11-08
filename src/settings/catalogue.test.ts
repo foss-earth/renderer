@@ -25,12 +25,29 @@ describe("renderer settings catalogue", () => {
     ]);
   });
 
-  it("defaults upscaling off, sharpness to 0.2, dynamic resolution off, and the target to 60", () => {
+  it("draws at most 1.5 pixels per CSS pixel, without antialiasing, at up to 60 frames a second by default", () => {
+    const resolution = (devicePixelRatio: number, rendererDevicePixels: boolean | null = null) => {
+      const settings = createSettingsRegistry({ deviceContext: { ...DEVICE, devicePixelRatio, rendererDevicePixels } });
+      settings.register(RENDERER_PARAMETERS);
+      return settings.get("renderer.resolutionScale");
+    };
+    expect([1, 1.25, 1.5, 2, 3].map(dpr => resolution(dpr))).toEqual([1, 1, 1, 0.75, 0.5]);
+    expect(resolution(2.625)).toBeCloseTo(1.5 / 2.625, 12);
+    // The safe WebGPU fallback still draws one pixel per CSS pixel.
+    expect(resolution(2, false)).toBe(0.5);
+    expect(resolution(3, false)).toBeCloseTo(1 / 3, 12);
+    const settings = createSettingsRegistry();
+    settings.register(RENDERER_PARAMETERS);
+    expect(settings.get("renderer.antialias")).toBe(false);
+    expect(settings.get("renderer.frameRateCap")).toBe(60);
+  });
+
+  it("defaults upscaling off, sharpness to 0.2, dynamic resolution on, and the target to 60", () => {
     const settings = createSettingsRegistry();
     settings.register(RENDERER_PARAMETERS);
     expect(settings.get("renderer.upscaling")).toBe("off");
     expect(settings.get("renderer.upscalingSharpness")).toBe(0.2);
-    expect(settings.get("renderer.dynamicResolution")).toBe(false);
+    expect(settings.get("renderer.dynamicResolution")).toBe(true);
     expect(settings.get("renderer.targetFps")).toBe(60);
     expect(settings.get("renderer.skipDisabledMeshes")).toBe(true);
     expect(settings.get("renderer.opaqueNearToFar")).toBe(false);

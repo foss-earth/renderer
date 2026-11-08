@@ -3,6 +3,9 @@ export { FRAME_PROFILING_IDS, frameProfilingParameters } from "./profiling.js";
 
 export const RENDERER_TAB = "renderer";
 
+/** The most pixels Resolution draws by default per CSS pixel: 0.75 on a 2× display, 0.5 on a 3× one. */
+export const DEFAULT_MAX_PIXELS_PER_CSS_PIXEL = 1.5;
+
 export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
   {
     id: "renderer.backend",
@@ -34,8 +37,10 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     alwaysShowTrack: true,
     default: context => context.rendererDevicePixels === false
       ? { value: 1 / Math.max(1, context.devicePixelRatio), derivedFrom: "the safe WebGPU fallback, which draws a pixel per CSS pixel" }
-      : { value: 1, derivedFrom: "a pixel drawn per pixel of the display" },
-    defaultReason: "What the renderer drew before this became a parameter.",
+      : context.devicePixelRatio > DEFAULT_MAX_PIXELS_PER_CSS_PIXEL
+        ? { value: DEFAULT_MAX_PIXELS_PER_CSS_PIXEL / context.devicePixelRatio, derivedFrom: `${DEFAULT_MAX_PIXELS_PER_CSS_PIXEL} pixels drawn per CSS pixel on this ${context.devicePixelRatio}× display` }
+        : { value: 1, derivedFrom: "a pixel drawn per pixel of the display" },
+    defaultReason: "At most 1.5 pixels drawn per CSS pixel: 0.75 on a 2× laptop screen and 0.5 on a 3× phone, about half and a quarter of the pixels. Tried on the flight on 8 November 2026 and kept for speed; a display of 1.5× or less draws every pixel.",
     home: { tab: RENDERER_TAB, section: "main", level: "main" },
     appliesLive: true,
     source: "src/engine/babylon/createBabylonRuntime.ts",
@@ -46,8 +51,8 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     description: "Smooths the edges of the ground and models with several samples per pixel, where the renderer allows it. Off saves GPU memory and work.",
     unit: "none",
     kind: "boolean",
-    default: true,
-    defaultReason: "The renderer drew with it before this became a parameter; the safe WebGPU fallback turns it off.",
+    default: false,
+    defaultReason: "Off for speed: no extra samples per pixel to draw and store. Tried on the flight on 8 November 2026 and kept.",
     home: { tab: RENDERER_TAB, section: "main", level: "main" },
     appliesLive: false,
     source: "src/engine/babylon/createRendererMode.ts",
@@ -63,8 +68,8 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     step: 0.25,
     scale: "log2",
     alwaysShowTrack: true,
-    default: "off",
-    defaultReason: "No cap: as many frames as the display shows.",
+    default: 60,
+    defaultReason: "60 frames a second: a 120 Hz screen draws half as many frames, and a 60 Hz one is not slowed. Tried on the flight on 8 November 2026 and kept.",
     home: { tab: RENDERER_TAB, section: "main", level: "main" },
     appliesLive: true,
     source: "src/engine/babylon/renderScheduler.ts",
@@ -107,8 +112,8 @@ export const RENDERER_PARAMETERS: readonly ParameterSpec[] = [
     description: "Lowers resolution automatically when the GPU falls behind the frame time target, and raises it slowly when spare GPU time returns.",
     unit: "none",
     kind: "boolean",
-    default: false,
-    defaultReason: "The resolution stays where Resolution sets it.",
+    default: true,
+    defaultReason: "The resolution drops only while the GPU misses the target frame rate, and comes back once it keeps up. Tried on the flight on 8 November 2026 and kept.",
     home: { tab: RENDERER_TAB, section: "main", level: "main" },
     appliesLive: true,
     source: "src/babylon/rendererLifecycle.ts",

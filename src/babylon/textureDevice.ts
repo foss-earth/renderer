@@ -1,11 +1,11 @@
-import { Constants, RawTexture, type AbstractEngine, type ThinEngine, type InternalTexture, type Scene, type Texture } from "@babylonjs/core";
+import { Constants, RawTexture, RawTexture2DArray, type AbstractEngine, type Engine, type ThinEngine, type InternalTexture, type Scene, type Texture } from "@babylonjs/core";
 import type { TextureTransferOutcome, TextureTransferRetirement, TryAdmitTextureTransfer } from "../textureTransferTypes.js";
 import type { UploadTicket } from "./imageUploadTypes.js";
 import { withTextureUploadState } from "./textureUploadState.js";
 import { protectTextureDisposal } from "./textureDisposal.js";
 
 export interface RawTextureRequest {
-  scene: Scene; data: Uint8Array | null; width: number; height: number;
+  scene: Scene; data: Uint8Array | null; width: number; height: number; depth?: number;
   format: number; mipmaps: boolean; invertY: boolean; samplingMode: number; type: number;
 }
 export interface TextureDevicePorts {
@@ -56,8 +56,30 @@ export function createTextureDevicePorts(options: {
   const nativeUpdate = (engine as AbstractEngine & Partial<Pick<ThinEngine, "updateTextureData">>).updateTextureData;
   if (typeof nativeUpdate !== "function") throw new Error("The borrowed renderer does not support raw texture region updates.");
   const updateTextureData = nativeUpdate.bind(engine);
-  const dimensions = (width: number, height: number): void => {
-    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > engine.getCaps().maxTextureSize || height > engine.getCaps().maxTextureSize) throw new Error("Texture dimensions exceed the borrowed renderer's limits.");
+  const uploadTarget = (texture: InternalTexture): "2d" | "cube" | "2d-array" =>
+    texture.isCube ? "cube" : texture.is2DArray ? "2d-array" : "2d";
+  const performUpdate = (texture: InternalTexture, data: ArrayBufferView, x: number, y: number,
+    width: number, height: number, faceIndex: number, lod: number, generateMipMaps: boolean): void => {
+    const borrowed = engine as Engine;
+    const gl = borrowed._gl as WebGL2RenderingContext | undefined;
+    if (texture.is2DArray && gl && typeof gl.texSubImage3D === "function" && borrowed.webGLVersion >= 2) {
+      const textureType = borrowed._getWebGLTextureType(texture.type);
+      const format = borrowed._getInternalFormat(texture.format);
+      borrowed._unpackFlipY(texture.invertY);
+      borrowed._bindTextureDirectly(gl.TEXTURE_2D_ARRAY, texture, true);
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, lod, x, y, faceIndex, width, height, 1, format, textureType, data);
+      if (generateMipMaps) gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+      borrowed._bindTextureDirectly(gl.TEXTURE_2D_ARRAY, null);
+      return;
+    }
+    updateTextureData(texture, data, x, y, width, height, faceIndex, lod, generateMipMaps);
+  };
+  const dimensions = (width: number, height: number, depth = 1): void => {
+    const caps = engine.getCaps() as { maxTextureSize: number; texture2DArrayMaxLayerCount?: number };
+    const maxLayers = caps.texture2DArrayMaxLayerCount || 256;
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || !Number.isSafeInteger(depth) || width < 1 || height < 1 || depth < 1 || width > caps.maxTextureSize || height > caps.maxTextureSize || (depth > 1 && depth > maxLayers)) {
+      throw new Error("Texture dimensions exceed the borrowed renderer's limits.");
+    }
   };
   type Region = Required<RawTextureBatchRegion>;
   const validateRegion = (region: Region): void => {
@@ -71,7 +93,8 @@ export function createTextureDevicePorts(options: {
     if (lod > Math.floor(Math.log2(Math.max(texture.width, texture.height)))) throw new Error("Raw texture batch mip exceeds its texture storage.");
     const mipWidth = Math.max(1, Math.floor(texture.width / 2 ** lod));
     const mipHeight = Math.max(1, Math.floor(texture.height / 2 ** lod));
-    if (x + width > mipWidth || y + height > mipHeight || (texture.isCube ? faceIndex > 5 : faceIndex !== 0)) throw new Error("Raw texture batch region exceeds its texture storage.");
+    const maxFaceIndex = texture.isCube ? 5 : texture.is2DArray ? Math.max(0, (texture.depth || 1) - 1) : 0;
+    if (x + width > mipWidth || y + height > mipHeight || faceIndex > maxFaceIndex) throw new Error("Raw texture batch region exceeds its texture storage.");
     if (typeof generateMipMaps !== "boolean") throw new Error("Raw texture batch mip-generation policy must be a boolean.");
   };
   return {
@@ -128,7 +151,7 @@ export function createTextureDevicePorts(options: {
             for (const region of snapshots) {
               if (!isActive()) return;
               validateRegion(region);
-              withTextureUploadState(engine, () => updateTextureData(region.texture, region.data, region.x, region.y, region.width, region.height, region.faceIndex, region.lod, region.generateMipMaps), region.texture.isCube ? "cube" : "2d");
+              withTextureUploadState(engine, () => performUpdate(region.texture, region.data, region.x, region.y, region.width, region.height, region.faceIndex, region.lod, region.generateMipMaps), uploadTarget(region.texture));
             }
           });
         },
@@ -137,16 +160,33 @@ export function createTextureDevicePorts(options: {
     },
     createRawTexture(request) {
       if (request.scene !== options.scene) throw new Error("Texture belongs to a different renderer scene.");
-      dimensions(request.width, request.height);
-      const allocation: { texture: RawTexture | null } = { texture: null };
-      const create = (): RawTexture => withTextureUploadState(engine, () => {
-        const texture = new RawTexture(request.data, request.width, request.height, request.format, request.scene, request.mipmaps, request.invertY, request.samplingMode, request.type);
+      const depth = request.depth ?? 1;
+      dimensions(request.width, request.height, depth);
+      const allocation: { texture: Texture | null } = { texture: null };
+      const target = depth > 1 ? "2d-array" : "2d";
+      const create = (): Texture => withTextureUploadState(engine, () => {
+        let texture: Texture;
+        if (depth > 1) {
+          const borrowed = engine as Engine & { _gl?: WebGL2RenderingContext; createRawTexture2DArray?: (...args: unknown[]) => InternalTexture };
+          if (!borrowed.isWebGPU && (!borrowed._gl || typeof borrowed.createRawTexture2DArray !== "function")) {
+            texture = new RawTexture(request.data, request.width, request.height, request.format, request.scene, request.mipmaps, request.invertY, request.samplingMode, request.type);
+            const internal = texture.getInternalTexture();
+            if (internal) {
+              internal.depth = internal.baseDepth = depth;
+              internal.is2DArray = true;
+            }
+          } else {
+            texture = new RawTexture2DArray(request.data, request.width, request.height, depth, request.format, request.scene, request.mipmaps, request.invertY, request.samplingMode, request.type);
+          }
+        } else {
+          texture = new RawTexture(request.data, request.width, request.height, request.format, request.scene, request.mipmaps, request.invertY, request.samplingMode, request.type);
+        }
         allocation.texture = texture;
         protectTextureDisposal(texture);
         return texture;
-      });
+      }, target);
       try {
-        const allocate = (): RawTexture => { allocation.texture = create(); return allocation.texture; };
+        const allocate = (): Texture => { allocation.texture = create(); return allocation.texture; };
         return request.data ? options.transfer(request.data.byteLength, "raw texture allocation", allocate) : allocate();
       } catch (error) {
         // Transfer completion tracking can throw after native allocation succeeded.
@@ -159,7 +199,7 @@ export function createTextureDevicePorts(options: {
       if (texture.getEngine() !== engine) throw new Error("Texture belongs to a different renderer device.");
       dimensions(width, height);
       if (![x, y, faceIndex, lod].every(value => Number.isSafeInteger(value) && value >= 0)) throw new Error("Texture update origin/layer/mip must be nonnegative integers.");
-      options.transfer(data.byteLength, "raw texture update", () => withTextureUploadState(engine, () => updateTextureData(texture, data, x, y, width, height, faceIndex, lod, generateMipMaps), texture.isCube ? "cube" : "2d"));
+      options.transfer(data.byteLength, "raw texture update", () => withTextureUploadState(engine, () => performUpdate(texture, data, x, y, width, height, faceIndex, lod, generateMipMaps), uploadTarget(texture)));
     },
   };
 }

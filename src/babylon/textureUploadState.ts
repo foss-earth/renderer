@@ -1,7 +1,7 @@
 import type { AbstractEngine, Engine } from "@babylonjs/core";
 
 /** Babylon raw uploads also mutate flip/alignment state before their native call. */
-export function withTextureUploadState<T>(engine: AbstractEngine, submit: () => T, target: "2d" | "cube" = "2d"): T {
+export function withTextureUploadState<T>(engine: AbstractEngine, submit: () => T, target: "2d" | "cube" | "2d-array" = "2d"): T {
   const borrowed = engine as Engine;
   const gl = borrowed._gl;
   if (!gl || borrowed.webGLVersion < 1) return submit();
@@ -16,7 +16,17 @@ export function withTextureUploadState<T>(engine: AbstractEngine, submit: () => 
       try { gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiply); }
       finally {
         try { gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, conversion); }
-        finally { try { borrowed._unpackFlipY(flipY); } finally { borrowed._bindTextureDirectly(target === "cube" ? gl.TEXTURE_CUBE_MAP : gl.TEXTURE_2D, null, true); } }
+        finally {
+          try { borrowed._unpackFlipY(flipY); }
+          finally {
+            const glTarget = target === "cube"
+              ? gl.TEXTURE_CUBE_MAP
+              : target === "2d-array" && "TEXTURE_2D_ARRAY" in gl
+                ? (gl as WebGL2RenderingContext).TEXTURE_2D_ARRAY
+                : gl.TEXTURE_2D;
+            borrowed._bindTextureDirectly(glTarget, null, true);
+          }
+        }
       }
     }
   }
